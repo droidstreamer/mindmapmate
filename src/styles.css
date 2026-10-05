@@ -1,0 +1,839 @@
+@import "@xyflow/react/dist/style.css";
+
+.flowmap-view {
+  padding: 0;
+  overflow: hidden;
+}
+
+.flowmap-root,
+.flowmap-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.flowmap-canvas:focus {
+  outline: none;
+}
+
+/* Follow Obsidian's light and dark theme. Board colors come from core/style.ts as CSS variables (D13). */
+.flowmap-view .react-flow {
+  --xy-background-color: var(--background-primary);
+  --xy-background-pattern-color: var(--background-modifier-border);
+  --xy-edge-stroke: var(--text-faint);
+  --xy-edge-stroke-selected: var(--interactive-accent);
+  --xy-edge-label-background-color: var(--background-primary);
+  --xy-edge-label-color: var(--text-muted);
+  --xy-selection-background-color: hsla(var(--interactive-accent-hsl), 0.16);
+  --xy-selection-border: 1px dotted var(--interactive-accent);
+  --xy-controls-button-background-color: var(--background-secondary);
+  --xy-controls-button-background-color-hover: var(--background-modifier-hover);
+  --xy-controls-button-color: var(--text-normal);
+  --xy-controls-button-border-color: var(--background-modifier-border);
+  --xy-resize-background-color: var(--interactive-accent);
+  font-family: var(--font-interface);
+}
+
+/* Round 10 (Canvas): a faint box around a selection of two or more, behind the nodes; the rectangle select above is
+   stronger. React Flow's own box (shown after a rectangle select) covered the nodes and swallowed Shift-clicks. */
+.flowmap-selection-box {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid hsla(var(--interactive-accent-hsl), 0.35);
+  background: hsla(var(--interactive-accent-hsl), 0.05);
+  border-radius: 6px;
+}
+.flowmap-view .react-flow__nodesselection { display: none; }
+
+/* Node markup is shared with the hidden measuring box used by tidy, so sizes match exactly.
+   M4b: the outline is an SVG path drawn at the node's real size (see TaskNode); the box itself has no border. */
+.flowmap-node {
+  --flowmap-node-min: 60px;
+  --flowmap-node-max: 320px;
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  min-width: var(--flowmap-node-min);
+  max-width: var(--flowmap-node-max);
+  padding: 8px 12px;
+  color: var(--tm-text, var(--text-normal));
+  font-family: var(--tm-font, var(--font-interface));
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.flowmap-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.flowmap-shape path {
+  fill: var(--tm-fill);
+  fill-opacity: var(--tm-fill-opacity, 0.16);
+  stroke: var(--tm-stroke, var(--text-normal));
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.flowmap-node.shape-text .flowmap-shape path { fill: none; stroke-width: 2; }
+/* M5c: the None shape draws nothing; its box path is only there for the selection glow. */
+.flowmap-node.shape-none .flowmap-shape path:not(.flowmap-node-halo) { fill: none; stroke: none; }
+/* Round 6 (N3): a label is big text with no outline or fill, in its outline color, and doesn't wrap at the node width. */
+.flowmap-node.shape-label .flowmap-shape path:not(.flowmap-node-halo) { fill: none; stroke: none; }
+.flowmap-node.shape-label { --flowmap-node-max: 2400px; padding: 2px 6px; font-size: var(--tm-size, 28px); font-weight: 600; line-height: 1.25; }
+.flowmap-node.shape-label .flowmap-node-text { color: var(--tm-stroke); white-space: pre; }
+.flowmap-size-btn { font-weight: 600; font-size: 16px; line-height: 1; }
+.flowmap-size-btn.is-small { font-size: 11px; }
+.flowmap-bar .flowmap-readout { min-width: 2em; text-align: center; font-size: var(--font-ui-small); }
+.flowmap-node.shape-pill { padding: 8px 18px; }
+/* M6b flowchart shapes: room for the document's wave, the predefined process's side lines, the cylinder's top. */
+.flowmap-node.shape-doc { padding: 8px 12px 12px; }
+.flowmap-node.shape-predef { padding: 8px 20px; }
+.flowmap-node.shape-cyl { padding: 18px 12px 10px; }
+.flowmap-node.shape-predef, .flowmap-node.shape-cyl { text-align: center; }
+/* M6b: Board style text color "Node color": each label takes its node's outline color. */
+.flowmap-canvas.text-node .flowmap-node { color: var(--tm-stroke, var(--text-normal)); }
+
+/* Circle: a square box, text wrapped and smaller (handoff); the checkbox is hidden. */
+.flowmap-node.shape-circle {
+  --flowmap-node-max: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  aspect-ratio: 1;
+  min-width: 72px;
+  padding: 10px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.flowmap-node.shape-circle .flowmap-check { display: none; }
+.flowmap-node.shape-diamond, .flowmap-node.shape-hex, .flowmap-node.shape-para { text-align: center; }
+/* M5b: a diamond's text wraps sooner, since its box grows to 1/0.6 of the text's width (fitDiamond). */
+.flowmap-node.shape-diamond { --flowmap-node-max: 180px; }
+
+/* Lines attach at the outline, which reaches past the box for hexagons (and inside it for parallelograms). Each side
+   is set from its own edge, since React Flow centres the dot on that edge with a transform (M5b: the right and bottom
+   dots were set from the left and top, which put them a dot's width outside the outline). */
+.flowmap-node > .react-flow__handle-left { left: calc(0px - var(--tm-oh-x, 0px)); }
+.flowmap-node > .react-flow__handle-right { right: calc(0px - var(--tm-oh-x, 0px)); }
+.flowmap-node > .react-flow__handle-top { top: calc(0px - var(--tm-oh-y, 0px)); }
+.flowmap-node > .react-flow__handle-bottom { bottom: calc(0px - var(--tm-oh-y, 0px)); }
+
+.flowmap-node.has-width {
+  max-width: none;
+  width: 100%;
+}
+
+/* D33: a selected node looks like a selected line: its outline 1px thicker, over a soft accent glow. */
+.react-flow__node.selected .flowmap-shape path:not(.flowmap-node-halo) { stroke-width: 2.5; }
+.react-flow__node.selected .flowmap-node.shape-text .flowmap-shape path:not(.flowmap-node-halo) { stroke-width: 3; }
+.flowmap-shape path.flowmap-node-halo {
+  fill: none;
+  stroke: var(--interactive-accent);
+  stroke-opacity: 0.3;
+  stroke-width: 11;
+}
+
+.flowmap-node-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.flowmap-node-editor {
+  display: block;
+  width: 100%;
+  min-width: 120px;
+  field-sizing: content;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  box-shadow: none;
+}
+
+.flowmap-node-link {
+  margin-top: 2px;
+  color: var(--link-color);
+  font-size: 12px;
+}
+
+/* F10: note links on nodes look like Obsidian's; a missing note is faded. */
+.flowmap-node .internal-link {
+  color: var(--link-color);
+  text-decoration-line: var(--link-decoration);
+  cursor: pointer;
+}
+.flowmap-node .internal-link:hover { color: var(--link-color-hover); text-decoration-line: var(--link-decoration-hover); }
+.flowmap-node .internal-link.is-unresolved {
+  color: var(--link-unresolved-color);
+  opacity: var(--link-unresolved-opacity);
+  text-decoration-style: var(--link-unresolved-decoration-style);
+}
+
+/* F8: checkbox, text and progress on one row. */
+.flowmap-node-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.flowmap-node-row > .flowmap-node-text,
+.flowmap-node-row > .flowmap-node-editor {
+  flex: 1;
+  min-width: 0;
+}
+
+.flowmap-check {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  margin: 0;
+  align-self: center;
+  cursor: pointer;
+}
+
+.flowmap-progress {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* M7: the due date chip: red when overdue, amber when due today, muted once the task is done or dropped. */
+.flowmap-due {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+/* R24: Preferences can set each color (--flowmap-due-*, on the view). */
+.flowmap-due.is-overdue { --c: var(--flowmap-due-overdue, var(--color-red)); background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); font-weight: 600; }
+.flowmap-due.is-today { --c: var(--flowmap-due-today, var(--color-orange)); background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); font-weight: 600; }
+.flowmap-due.is-later { color: var(--flowmap-due-later, var(--text-muted)); }
+.flowmap-due.is-closed { opacity: 0.6; }
+.flowmap-due-pop { display: flex; flex-direction: column; gap: 6px; }
+
+.flowmap-node.status-done,
+.flowmap-node.status-dropped {
+  opacity: 0.6;
+}
+
+.flowmap-node.status-done .flowmap-node-text,
+.flowmap-node.status-dropped .flowmap-node-text {
+  text-decoration: line-through;
+}
+
+/* Round 12: each status has its own checkbox, since the outline carries the branch color: doing half filled, blocked
+   a red "!", dropped a grey "–"; done is the theme's tick. The Checkbox menu draws the same boxes (.flowmap-status). */
+.flowmap-check { position: relative; }
+.flowmap-status {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--checkbox-border-color);
+  border-radius: var(--checkbox-radius);
+}
+.flowmap-node.status-doing .flowmap-check, .flowmap-status.is-doing {
+  border-color: var(--interactive-accent);
+  background: linear-gradient(to top, var(--interactive-accent) 50%, transparent 50%);
+}
+.flowmap-node.status-blocked .flowmap-check, .flowmap-status.is-blocked {
+  border-color: var(--text-error);
+  background: color-mix(in srgb, var(--text-error) 15%, transparent);
+}
+.flowmap-node.status-dropped .flowmap-check, .flowmap-status.is-dropped {
+  border-color: var(--text-faint);
+  background: var(--background-modifier-border);
+}
+.flowmap-status.is-done { border-color: var(--interactive-accent); background: var(--interactive-accent); }
+.flowmap-node.status-blocked .flowmap-check::after, .flowmap-status.is-blocked::after,
+.flowmap-node.status-dropped .flowmap-check::after, .flowmap-status.is-dropped::after,
+.flowmap-status.is-done::after {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.flowmap-node.status-blocked .flowmap-check::after, .flowmap-status.is-blocked::after { content: "!"; color: var(--text-error); }
+.flowmap-node.status-dropped .flowmap-check::after, .flowmap-status.is-dropped::after { content: "–"; color: var(--text-muted); }
+.flowmap-status.is-done::after { content: "✓"; color: var(--text-on-accent); }
+
+/* D30: connection dots are hidden until the pointer comes near one; only that one shows (see onPointerMove).
+   Round 14: 21px (was 15px), and none on a selected node. HALF_HANDLE in BoardCanvas.tsx is half the size. */
+.flowmap-node .react-flow__handle {
+  width: 21px;
+  height: 21px;
+  background: var(--interactive-accent);
+  border: 2px solid var(--background-primary);
+  opacity: 0;
+}
+
+.flowmap-node .react-flow__handle.is-near,
+.react-flow__handle.connectingfrom {
+  opacity: 1;
+}
+
+/* Round 14: only the dot that shows takes the pointer, so a hidden 21px dot never catches a click meant for the node
+   beside it; a selected node's dots never show, so pressing there drags the selection. */
+.flowmap-node .react-flow__handle:not(.is-near):not(.connectingfrom),
+.react-flow__node.selected .flowmap-node .react-flow__handle { opacity: 0; pointer-events: none; }
+
+/* Lines (M4b): glow under a selected line, a faint one on hover (Advanced Canvas look, handoff §2). */
+.flowmap-halo {
+  fill: none;
+  stroke: var(--interactive-accent);
+  stroke-opacity: 0.3;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.react-flow__edge:not(.selected):hover .react-flow__edge-interaction {
+  stroke: var(--interactive-accent);
+  stroke-opacity: 0.12;
+}
+
+/* M6: while a busy view pans or zooms, lines are 1px hairlines and their wide hit areas aren't painted (see BUSY_LINES).
+   Each line's width reads --tm-busy-width first. */
+.flowmap-canvas.is-moving-busy { --tm-busy-width: 1px; }
+.flowmap-canvas.is-moving-busy .react-flow__edge-path { vector-effect: non-scaling-stroke; }
+.flowmap-canvas.is-moving-busy .react-flow__edge-interaction { display: none; }
+
+.flowmap-head { stroke: var(--tm-line); stroke-linejoin: round; stroke-linecap: round; }
+.flowmap-head.is-fill { fill: var(--tm-line); stroke: none; }
+.flowmap-head.is-outline { fill: var(--background-primary); }
+.flowmap-head.is-stroke { fill: none; }
+.flowmap-head { vector-effect: non-scaling-stroke; }
+
+/* M4b toolbars, flyouts and controls, in screen space over the board (handoff; chrome on Obsidian's variables). */
+.flowmap-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.flowmap-bar,
+.flowmap-group,
+.flowmap-pop,
+.flowmap-label-editor {
+  pointer-events: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+
+.flowmap-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  box-shadow: var(--shadow-s);
+}
+
+.flowmap-bar.is-board { top: 16px; right: 60px; }
+
+.flowmap-overlay .flowmap-btn,
+.flowmap-overlay .flowmap-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.flowmap-overlay .flowmap-bar.is-connector .flowmap-btn,
+.flowmap-overlay .flowmap-bar.is-board .flowmap-btn { width: 36px; }
+
+.flowmap-overlay .flowmap-btn:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.flowmap-overlay .flowmap-btn.is-active { background: var(--interactive-hover); color: var(--text-normal); }
+.flowmap-overlay .flowmap-btn:disabled { opacity: 0.45; cursor: default; background: transparent; }
+
+.flowmap-icon { display: flex; }
+.flowmap-icon svg { width: 18px; height: 18px; }
+
+.flowmap-glyph { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* The kind class is on the glyph's path. Open heads show hollow, filled heads solid. */
+.flowmap-glyph .is-fill { fill: currentColor; stroke: none; }
+.flowmap-glyph .is-outline { fill: none; }
+
+.flowmap-shape-btn { display: flex; align-items: center; gap: 2px; }
+.flowmap-bar .flowmap-btn.is-shape { width: 52px; }
+.flowmap-shape-btn .flowmap-icon svg { width: 12px; height: 12px; }
+
+.flowmap-divider {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--background-modifier-border);
+}
+
+.flowmap-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--dot);
+}
+
+.flowmap-dot.is-ring { background: none; box-shadow: inset 0 0 0 3px var(--dot); }
+.flowmap-dot.is-none { background: none; box-shadow: inset 0 0 0 1px var(--text-faint); }
+
+.flowmap-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: max-content;
+  padding: 12px;
+  box-shadow: var(--shadow-l);
+}
+
+.flowmap-pop.is-up { top: auto; bottom: calc(100% + 8px); }
+
+.flowmap-notch {
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-top: 1px solid var(--background-modifier-border);
+  border-left: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  transform: rotate(45deg);
+}
+
+.flowmap-tiles { display: flex; gap: 6px; }
+.flowmap-tiles.is-shapes { display: grid; grid-template-columns: repeat(4, 60px); }
+
+.flowmap-overlay .flowmap-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.flowmap-overlay .flowmap-tile.is-small { width: 36px; height: 32px; }
+.flowmap-overlay .flowmap-tile.is-toggle { width: 32px; height: 32px; }
+.flowmap-overlay .flowmap-tile:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+
+.flowmap-overlay .flowmap-tile.is-active {
+  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  color: var(--text-normal);
+}
+
+.flowmap-colors { display: flex; flex-direction: column; gap: 8px; }
+/* Round 6: specials | divider | a 9-column grid (presets over custom colors), the same in every color picker. */
+.flowmap-color-grid { display: flex; align-items: stretch; gap: 4px; }
+/* 8px apart: the selected ring reaches 3.5px out, so a 4px gap made it touch the next swatch (round 7). */
+.flowmap-specials { display: flex; gap: 8px; width: calc(3 * 22px + 2 * 8px); }
+.flowmap-divider.is-tall { height: auto; margin: 0 6px; }
+.flowmap-palette { display: grid; grid-template-columns: repeat(9, 22px); gap: 8px; }
+.flowmap-row { display: flex; align-items: center; gap: 4px; }
+
+:is(.flowmap-overlay, .flowmap-settings-color) .flowmap-swatch {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--c, transparent);
+  box-shadow: none;
+  color: var(--background-primary);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.flowmap-overlay .flowmap-swatch.is-active { box-shadow: 0 0 0 2px var(--background-primary), 0 0 0 3.5px var(--text-normal); }
+.flowmap-overlay .flowmap-swatch.is-none { background: linear-gradient(135deg, transparent 46%, var(--text-faint) 46% 54%, transparent 54%); box-shadow: inset 0 0 0 1px var(--text-faint); }
+.flowmap-overlay .flowmap-swatch.is-none.is-active { box-shadow: inset 0 0 0 1px var(--text-faint), 0 0 0 2px var(--background-primary), 0 0 0 3.5px var(--text-normal); }
+.flowmap-overlay .flowmap-swatch.is-empty { border: 1px dashed var(--text-faint); box-sizing: border-box; cursor: default; }
+.flowmap-overlay .flowmap-swatch.is-spectrum { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+/* Round 6: Match outline (fill) and Node color (text) are a ring of the outline color around a light fill of it; Node
+   color's ring runs through several outline colors. */
+.flowmap-overlay .flowmap-swatch.is-match {
+  --c-ring: var(--c, var(--text-muted));
+  background: radial-gradient(circle, color-mix(in srgb, var(--c-ring) 40%, var(--background-primary)) 0 52%, var(--c-ring) 54%);
+}
+.flowmap-overlay .flowmap-swatch.is-node {
+  background: radial-gradient(circle, var(--background-primary) 0 52%, transparent 54%),
+    conic-gradient(var(--color-blue), var(--color-red), var(--color-orange), #22b470, var(--color-purple), var(--color-blue));
+}
+/* Round 13: `color: inherit`, or currentColor is the swatch's own background-primary and the glyph vanishes. */
+.flowmap-overlay .flowmap-swatch.is-glyph { --c: currentColor; color: inherit; width: 16px; height: 16px; cursor: inherit; }
+
+/* D40: the custom color picker: hue, saturation and lightness tracks, a preview and a hex field. */
+.flowmap-hsl { display: flex; flex-direction: column; gap: 10px; width: 216px; margin-top: 10px; }
+/* Round 14: the grid dots color in plugin settings uses the same picker. */
+.flowmap-settings-color .flowmap-hsl { margin: 0; }
+/* Round 17: the picker is a popover from the swatch, not part of the row. */
+.flowmap-settings-color { position: relative; }
+.flowmap-settings-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-l);
+}
+/* Round 17: the About block at the top of the settings. Round 18: a small version subline, and the coffee button, small. */
+.flowmap-about { margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--background-modifier-border); }
+.flowmap-about-name { font-size: var(--font-ui-large); font-weight: var(--font-bold); color: var(--text-normal); }
+.flowmap-about-title { color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.flowmap-about p { margin: 6px 0 10px; color: var(--text-muted); }
+.flowmap-about-tip { text-align: left; color: var(--text-muted); margin: 1.2em 0 10px; } /* Round 22: body-text size (was smaller), still flush left, a blank line under the paragraph */
+.flowmap-about-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; color: var(--text-faint); font-size: var(--font-ui-small); } /* Round 23: "Made with care" sits right beside the button */
+.flowmap-coffee { display: inline-block; line-height: 0; }
+.flowmap-coffee img { height: 30px; width: auto; }
+/* The header is a declarative settings row (Obsidian 1.13): one block, not name and control side by side. */
+.setting-item.flowmap-about-row { display: block; }
+.flowmap-about-row .flowmap-about { margin: 0; padding: 0; border: 0; }
+/* Round 18: a board key as a chip. */
+:is(.flowmap-overlay, .flowmap-settings-color) .flowmap-hsl-track {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--background-modifier-border);
+}
+/* Obsidian sizes and lifts its slider knob through variables (meant for its 6px track); set them here so its white knob sits centred
+   on the 12px track, also while hovered or dragged. */
+input.flowmap-hsl-track {
+  --slider-thumb-width: 18px; --slider-thumb-height: 18px; --slider-thumb-width-active: 18px; --slider-thumb-height-active: 18px;
+  --slider-thumb-y: -3px; --slider-thumb-y-active: -3px; --slider-thumb-radius: 50%;
+}
+input.flowmap-hsl-track::-webkit-slider-runnable-track { background: transparent; height: 12px; }
+input.flowmap-hsl-track::-webkit-slider-thumb { box-sizing: border-box; cursor: pointer; }
+:is(.flowmap-overlay, .flowmap-settings-color) .flowmap-hex { width: 96px; font-family: var(--font-monospace); }
+/* Round 22: the reset button beside the hex field. */
+:is(.flowmap-overlay, .flowmap-settings-color) .flowmap-reset { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; margin-left: auto; background: transparent; box-shadow: none; color: var(--text-muted); cursor: pointer; }
+:is(.flowmap-overlay, .flowmap-settings-color) .flowmap-reset:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+
+.flowmap-menu { display: flex; flex-direction: column; min-width: 200px; margin: -8px; }
+
+.flowmap-overlay .flowmap-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  text-align: left;
+  cursor: pointer;
+}
+
+.flowmap-menu-row > span:not(.flowmap-icon, .flowmap-status, .checkbox-container) { flex: 1; }
+.flowmap-menu-row > .checkbox-container { flex: none; pointer-events: none; }
+.flowmap-menu-row > .flowmap-status { margin: 0 1px; }
+.flowmap-overlay .flowmap-menu-row:hover { background: var(--background-modifier-hover); }
+.flowmap-overlay .flowmap-menu-row:disabled { opacity: 0.45; cursor: default; background: transparent; }
+.flowmap-menu-row svg { width: 16px; height: 16px; }
+.flowmap-menu-sep { height: 1px; margin: 4px 0; background: var(--background-modifier-border); }
+.flowmap-font-input { margin: 4px; }
+.flowmap-font-note { padding: 4px 8px; color: var(--text-warning); font-size: var(--font-ui-smaller); max-width: 220px; }
+
+.flowmap-slider { display: flex; align-items: center; gap: 10px; }
+.flowmap-slider input[type="range"] { width: 150px; }
+.flowmap-readout { min-width: 3em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.flowmap-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* R24: on a short pane the stack wraps into a second column, to its left, instead of running off the bottom. */
+  flex-wrap: wrap-reverse;
+  align-items: flex-end;
+  max-height: calc(100% - 32px);
+}
+/* R24: the filter menu opens upward when its button sits in the lower half of the window. */
+.flowmap-overlay .is-filter .flowmap-side-pop.is-up { top: auto; bottom: 0; }
+
+.flowmap-group { display: flex; flex-direction: column; box-shadow: var(--shadow-s); }
+
+/* M6: the Levels menu opens to the left of the controls stack. */
+.flowmap-levels { position: relative; display: flex; }
+.flowmap-overlay .flowmap-side-pop {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 8px);
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-l);
+  pointer-events: auto;
+  min-width: 170px;
+}
+
+/* F9 focus mode: nodes and lines outside the focused branch. */
+.react-flow__node.is-dim, .react-flow__edge.is-dim { opacity: 0.15; }
+
+/* F16 minimap, bottom right. */
+.flowmap-minimap canvas {
+  display: block;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+  cursor: pointer;
+}
+.flowmap-overlay .flowmap-group .flowmap-btn { width: 36px; height: 34px; }
+.flowmap-overlay .flowmap-zoom { width: 36px; height: 24px; font-size: 10.5px; }
+/* Round 17: the level stepper: chevrons and an "L3" label, tinted and spaced so it isn't read as a second zoom. */
+.flowmap-group.is-levels { margin: 6px 0; }
+.flowmap-overlay .flowmap-group.is-levels .flowmap-btn { height: 26px; }
+.flowmap-overlay .flowmap-levelnum { width: 36px; height: 24px; font-size: 10.5px; font-weight: 600; color: var(--interactive-accent); background: hsla(var(--interactive-accent-hsl), 0.12); }
+/* R25: with the funnel gone, the Nd number is the filter's button: solid while any filter is ticked. */
+.flowmap-overlay .flowmap-levelnum.is-active { color: var(--text-on-accent); background: var(--interactive-accent); }
+
+.flowmap-label-editor {
+  position: absolute;
+  width: 140px;
+  padding: 2px 6px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.react-flow__controls-button.is-active {
+  color: var(--interactive-accent);
+}
+
+.flowmap-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.flowmap-measure > .flowmap-node {
+  width: max-content;
+}
+
+.flowmap-measure > .flowmap-node.has-width {
+  max-width: none;
+}
+
+.flowmap-error {
+  max-width: 40em;
+  margin: 3em auto;
+  padding: 0 1em;
+}
+
+.flowmap-overview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* React Flow's resize lines are 1px wide; give them an 8px grab area like Canvas card edges. */
+.flowmap-view .react-flow__resize-control.line.left,
+.flowmap-view .react-flow__resize-control.line.right {
+  width: 8px;
+  border: none;
+  background: transparent;
+}
+
+/* F7: collapse button on the side the children are on; shows the hidden count when collapsed. */
+.flowmap-collapse {
+  position: absolute;
+  z-index: 5; /* over the connection dot where they meet (D35) */
+  height: 18px;
+  min-width: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 9px;
+  background: var(--background-primary);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  box-shadow: none;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.react-flow__node:hover .flowmap-collapse,
+.react-flow__node.selected .flowmap-collapse,
+.flowmap-collapse.is-collapsed {
+  opacity: 1;
+}
+
+.flowmap-collapse.is-collapsed {
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+}
+
+/* D35: clear of the outline (hexagon points included) and of the connection dot on it, on top where they meet. */
+.flowmap-collapse.side-r { left: calc(100% + var(--tm-oh-x, 0px) + 14px); top: 50%; transform: translateY(-50%); }
+.flowmap-collapse.side-l { right: calc(100% + var(--tm-oh-x, 0px) + 14px); top: 50%; transform: translateY(-50%); }
+.flowmap-collapse.side-b { top: calc(100% + var(--tm-oh-y, 0px) + 14px); left: 50%; transform: translateX(-50%); }
+.flowmap-collapse.side-t { bottom: calc(100% + var(--tm-oh-y, 0px) + 14px); left: 50%; transform: translateX(-50%); }
+
+/* F9: path to the selected node. */
+.flowmap-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: calc(100% - 30px);
+  padding: 2px 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  font-size: 12px;
+}
+
+.flowmap-breadcrumb button {
+  max-width: 16em;
+  padding: 0 4px;
+  overflow: hidden;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.flowmap-breadcrumb button:hover {
+  color: var(--text-normal);
+}
+
+.flowmap-breadcrumb-sep {
+  color: var(--text-faint);
+}
+
+/* M6b: note suggestions under a node while typing `[[`, like the editor's link suggester. */
+.flowmap-suggest {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 4px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+  color: var(--text-normal);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-small);
+  text-align: left;
+}
+.flowmap-suggest-row { display: flex; flex-direction: column; padding: 4px 8px; border-radius: var(--radius-s); cursor: pointer; }
+.flowmap-suggest-row.is-selected { background: var(--background-modifier-hover); }
+.flowmap-suggest-path { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+
+/* Round 6: animated lines. Marching ants move the dash one pattern length per cycle; moving dots are SVG animateMotion.
+   Both stop for reduced motion and during a busy pan (see is-moving-busy). */
+@keyframes flowmap-ants { to { stroke-dashoffset: calc(-1 * var(--tm-ants, 12px)); } }
+.flowmap-ants { animation: flowmap-ants 0.8s linear infinite; }
+.flowmap-ants.is-back { animation-direction: reverse; }
+.flowmap-glyph .flowmap-ants { --tm-ants: 5.5px; }
+.flowmap-canvas.is-moving-busy .flowmap-ants { animation: none; }
+.flowmap-canvas.is-moving-busy .flowmap-flow-dot { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .flowmap-ants { animation: none; }
+  .flowmap-flow-dot { display: none; }
+}
+
+/* Round 11: a drag on empty space inside the selection box moves the selection. */
+.flowmap-canvas.is-over-selection .react-flow__pane { cursor: move; }
+
+/* Round 11: Arrange > Size heading. */
+.flowmap-menu-head { padding: 4px 8px 2px; color: var(--text-faint); font-size: var(--font-ui-smaller); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Round 11: shortcut hints for the selection, only while the board has focus. */
+.flowmap-hints {
+  display: none;
+  gap: 12px;
+  max-width: calc(100% - 260px);
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--background-primary) 85%, transparent);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  pointer-events: none;
+}
+.flowmap-canvas:focus-within .flowmap-hints { display: flex; }
+.flowmap-hints kbd { font-size: inherit; padding: 0 4px; color: var(--text-normal); }
+
+/* Round 17: the due-date calendar. */
+.flowmap-cal { width: 224px; padding: 4px; }
+.flowmap-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-weight: 600; }
+.flowmap-overlay .flowmap-cal-head button { width: 28px; height: 28px; padding: 0; border: none; background: transparent; box-shadow: none; color: var(--text-muted); font-size: 18px; cursor: pointer; }
+.flowmap-overlay .flowmap-cal-head button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.flowmap-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.flowmap-cal-dow { text-align: center; color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.flowmap-overlay .flowmap-cal-day { height: 28px; padding: 0; border: none; border-radius: var(--radius-s); background: transparent; box-shadow: none; color: var(--text-normal); font-size: var(--font-ui-small); cursor: pointer; }
+.flowmap-overlay .flowmap-cal-day:hover { background: var(--background-modifier-hover); }
+.flowmap-overlay .flowmap-cal-day.is-out { color: var(--text-faint); }
+.flowmap-overlay .flowmap-cal-day.is-today { box-shadow: inset 0 0 0 1px var(--interactive-accent); }
+.flowmap-overlay .flowmap-cal-day.is-picked { background: var(--interactive-accent); color: var(--text-on-accent); }

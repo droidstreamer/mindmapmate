@@ -1,0 +1,35 @@
+{
+  "name": "mindmapmate",
+  "version": "1.0.1",
+  "private": true,
+  "description": "Visual task mindmap board for Obsidian",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit && node esbuild.config.mjs production && node scripts/scan-bundle.mjs",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "ship": "npm run build && node scripts/ship.mjs",
+    "fixtures": "node scripts/make-fixtures.ts && mkdir -p ../test-vault/Fixtures && cp --update=none test/fixtures/*.board.md ../test-vault/Fixtures/",
+    "obsidian:check": "node test/obsidian/check.mjs",
+    "obsidian:perf": "node test/obsidian/perf.mjs",
+    "showcase": "node test/obsidian/showcase.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@xyflow/react": "12.11.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "esbuild": "0.28.2",
+    "eslint": "10.10.0",
+    "obsidian": "1.13.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0",
+    "vitest": "5.0.1"
+  }
+}

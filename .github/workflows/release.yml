@@ -1,0 +1,37 @@
+# Push a tag equal to the manifest version (e.g. 1.0.2): builds main.js and styles.css from the tagged source, attests their
+# provenance, and publishes the GitHub release with main.js, manifest.json and styles.css (notes from docs/release-notes.md).
+name: Release
+on:
+  push:
+    tags: ['*']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Tag matches manifest version
+        run: test "$GITHUB_REF_NAME" = "$(node -p "require('./manifest.json').version")"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/main.js
+            dist/styles.css
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          awk -v v="## $GITHUB_REF_NAME" '$0==v{on=1;next} /^## /{on=0} on' docs/release-notes.md > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/main.js manifest.json dist/styles.css --title "$GITHUB_REF_NAME" --notes-file notes.md

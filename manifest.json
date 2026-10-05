@@ -1,0 +1,10 @@
+{
+  "id": "mindmapmate",
+  "name": "MindmapMate",
+  "version": "1.0.1",
+  "minAppVersion": "1.13.0",
+  "description": "Map ideas and tasks on a freeform mindmap board, saved as a Markdown note.",
+  "author": "Droid",
+  "isDesktopOnly": true,
+  "fundingUrl": "https://buymeacoffee.com/droidstreamer"
+}
