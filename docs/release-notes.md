@@ -2,6 +2,9 @@
 
 Newest first. Only recent versions are listed here; earlier rounds are in the wiki's MindmapMate Milestones page.
 
+## 1.0.3
+- **Community review:** note links on nodes take their underline from Obsidian's own link style, so the stylesheet no longer uses partly supported text-decoration features. They look the same.
+
 ## 1.0.2
 - **Community review fixes:** styles are set through Obsidian's helpers, the node sizer no longer adds a style element, and Mac keys are detected with Obsidian's Platform API.
 - **No script elements:** the bundled React DOM can no longer add script tags to the page (MindmapMate never needed them), and the build checks for it.

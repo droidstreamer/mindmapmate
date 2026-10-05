@@ -1,7 +1,7 @@
 {
   "id": "mindmapmate",
   "name": "MindmapMate",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "minAppVersion": "1.13.0",
   "description": "Map ideas and tasks on a freeform mindmap board, saved as a Markdown note.",
   "author": "Droid",

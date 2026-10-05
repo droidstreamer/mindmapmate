@@ -164,17 +164,16 @@
   font-size: 12px;
 }
 
-/* F10: note links on nodes look like Obsidian's; a missing note is faded. */
+/* F10: note links on nodes look like Obsidian's; a missing note is faded. They are <a> elements, so Obsidian's own
+   `a` rule draws the underline (--link-decoration). */
 .flowmap-node .internal-link {
   color: var(--link-color);
-  text-decoration-line: var(--link-decoration);
   cursor: pointer;
 }
-.flowmap-node .internal-link:hover { color: var(--link-color-hover); text-decoration-line: var(--link-decoration-hover); }
+.flowmap-node .internal-link:hover { color: var(--link-color-hover); }
 .flowmap-node .internal-link.is-unresolved {
   color: var(--link-unresolved-color);
   opacity: var(--link-unresolved-opacity);
-  text-decoration-style: var(--link-unresolved-decoration-style);
 }
 
 /* F8: checkbox, text and progress on one row. */

@@ -1145,6 +1145,8 @@ check('clicking the link opens the note', await ev(`return app.workspace.getActi
   const unresolved = () => ev(`return document.querySelector('.workspace-leaf.mod-active ${linkSel}')?.classList.contains('is-unresolved')`)
   let wl = await at(linkSel)
   check('a wikilink in node text is drawn as a link', !!wl && (await unresolved()) === false)
+  // Underlined as the theme's --link-decoration says (Obsidian's own a rule; Minimal sets none).
+  check('the link is decorated like a note link', await ev(`const a = document.querySelector('.workspace-leaf.mod-active ${linkSel}'); return getComputedStyle(a).textDecorationLine === getComputedStyle(document.body).getPropertyValue('--link-decoration').trim()`))
   await mouse('mouseMoved', wl.x, wl.y, { button: 'none' }); await sleep(1500)
   check('hovering a link shows the page preview', await ev(`return !!document.querySelector('.hover-popover')`))
   await mouse('mouseMoved', pane.x, pane.y, { button: 'none' }); await sleep(800)
