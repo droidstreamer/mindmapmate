@@ -66,7 +66,7 @@ const ArrowGlyph = ({ arrow }: { arrow: Arrow }) => {
 }
 
 /** A toolbar button. Buttons never take focus, so the board keeps its keys (Delete, Esc, …) after a click. */
-function Btn({ label, active, disabled, onClick, children, btnRef, cls }: { label: string, active?: boolean, disabled?: boolean, onClick(): void, children: ReactNode, btnRef?: React.Ref<HTMLButtonElement>, cls?: string }) {
+function Btn({ label, active, disabled, onClick, children, btnRef, cls }: { label: string, active?: boolean, disabled?: boolean, onClick: () => void, children: ReactNode, btnRef?: React.Ref<HTMLButtonElement>, cls?: string }) {
   return (
     <button ref={btnRef} className={'flowmap-btn' + (active ? ' is-active' : '') + (cls ? ` ${cls}` : '')} aria-label={label} disabled={disabled}
       onMouseDown={e => e.preventDefault()} onClick={onClick}>{children}</button>
@@ -116,7 +116,8 @@ function useSession() {
   return { attach, next: () => { const merge = live.current; live.current = true; return merge } }
 }
 
-type ColorValue = 'auto' | 'ink' | 'muted' | 'node' | typeof MATCH_OUTLINE | null | number | string
+/** A color: a preset index, "#rrggbb", or a keyword ('auto', 'ink', 'muted', 'node', MATCH_OUTLINE); null is none. */
+type ColorValue = null | number | string
 type Special = 'auto' | 'none' | 'ink' | 'muted' | 'node' | typeof MATCH_OUTLINE
 const sameColor = (a: Val<ColorValue> | undefined, b: ColorValue) => a === b || (typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase())
 
@@ -128,7 +129,7 @@ const sameColor = (a: Val<ColorValue> | undefined, b: ColorValue) => a === b || 
  */
 function ColorPop({ value, specials, autoColor, outlineColor, custom, onPick }: {
   value: Val<ColorValue> | undefined, specials: Special[], autoColor?: string, outlineColor?: string, custom: string[],
-  onPick(v: ColorValue, merge: boolean, newCustom?: { hex: string, newSession: boolean }): void,
+  onPick: (v: ColorValue, merge: boolean, newCustom?: { hex: string, newSession: boolean }) => void
 }) {
   const [hslOpen, setHslOpen] = useState(false)
   // The first change after opening the picker adds a custom color; later ones update it (pushCustom).
@@ -186,7 +187,7 @@ const HSL_MAX = [360, 100, 100], HSL_NAMES = ['Hue', 'Saturation', 'Lightness']
  * D40: the custom color picker: hue, saturation and lightness sliders over tracks that show what each would give, plus
  * a hex field. The hue track runs red, yellow, green, cyan, blue, purple and back to red. Each slider drag is one undo step.
  */
-export function HslPicker({ start, onPick, onReset }: { start?: string, onPick(hex: string, merge: boolean): void, onReset?(): void }) {
+export function HslPicker({ start, onPick, onReset }: { start?: string, onPick: (hex: string, merge: boolean) => void, onReset?: () => void }) {
   const first = useRef(start) // Round 22: what Reset goes back to, the color when the picker opened
   const [hsl, setHsl] = useState<[number, number, number]>(() => start ? hexToHsl(start) : [210, 70, 50])
   const sessions = [useSession(), useSession(), useSession()]
@@ -264,8 +265,8 @@ const ALIGN_ROWS: [Align, string, string][] = [
 
 export function NodePalette({ at, ids, board, strokes, fills, autos, flyout, setFlyout, dispatch, onNote, onArrange, onTasks }: {
   at: Placement, ids: string[], board: Board, strokes: Map<string, string>, fills: Map<string, string | undefined>,
-  autos: Map<string, { stroke: string, fill?: string }>, flyout: string | null, setFlyout(f: string | null): void, dispatch: Dispatch,
-  onNote(action: NoteAction): void, onArrange(how: Arrange): void, onTasks(ids: string[]): void,
+  autos: Map<string, { stroke: string, fill?: string }>, flyout: string | null, setFlyout: (f: string | null) => void, dispatch: Dispatch,
+  onNote: (action: NoteAction) => void, onArrange: (how: Arrange) => void, onTasks: (ids: string[]) => void
 }) {
   const btns = useRef<Record<string, HTMLButtonElement | null>>({})
   const nodes = board.nodes.filter(n => ids.includes(n.id))
@@ -428,7 +429,7 @@ export const styleLines = (lines: LineRef[], patch: Partial<Record<LineKey, unkn
 
 export function ConnectorPalette({ at, lines, looks, board, flyout, setFlyout, dispatch, onLabel, onKind }: {
   at: Placement, lines: LineRef[], looks: { dash: Dash, arrow: Arrow, direction: Direction, color: string, animate: Animate, rawColor: unknown, autoColor: string }[], board: Board,
-  flyout: string | null, setFlyout(f: string | null): void, dispatch: Dispatch, onLabel(): void, onKind(kind: LineRef['kind']): void,
+  flyout: string | null, setFlyout: (f: string | null) => void, dispatch: Dispatch, onLabel: () => void, onKind: (kind: LineRef['kind']) => void
 }) {
   const btns = useRef<Record<string, HTMLButtonElement | null>>({})
   const animate = common(looks.map(l => l.animate))
@@ -526,7 +527,7 @@ const installedFonts = () => installed ??= ((window as { queryLocalFonts?: () =>
   .then(fonts => [...new Set(fonts.map(f => f.family))].sort((a, b) => a.localeCompare(b)), () => [])
 
 /** A font name box that suggests installed fonts as you type, a few at a time, each shown in its own font. */
-function FontSearch({ onPick }: { onPick(font: string): void }) {
+function FontSearch({ onPick }: { onPick: (font: string) => void }) {
   // M6b: starts empty each time; the font in use is ticked in the list above.
   const [typed, setTyped] = useState('')
   const [fonts, setFonts] = useState<string[] | null>(null)
@@ -554,9 +555,9 @@ function FontSearch({ onPick }: { onPick(font: string): void }) {
 }
 
 export function BoardStyleBar({ board, flyout, setFlyout, dispatch, recentFonts, onFontUsed, onTidyBoard }: {
-  board: Board, flyout: string | null, setFlyout(f: string | null): void, dispatch: Dispatch, recentFonts: string[], onFontUsed(font: string): void,
+  board: Board, flyout: string | null, setFlyout: (f: string | null) => void, dispatch: Dispatch, recentFonts: string[], onFontUsed: (font: string) => void
   /** Round 9: turning "Tidy as you add" on tidies the whole board, in the same undo step. */
-  onTidyBoard(): void,
+  onTidyBoard: () => void
 }) {
   const btns = useRef<Record<string, HTMLButtonElement | null>>({})
   const style = boardStyle(board)
@@ -650,18 +651,18 @@ export function BoardStyleBar({ board, flyout, setFlyout, dispatch, recentFonts,
 
 /** M6 (F9, F16): view tools in the controls stack. `levels` is the board's depth; `focusMode` is on while a branch is focused. */
 export type ViewTools = {
-  levels: number, level: number, onLevel(level: number | 'all'): void, hideDone: boolean, onHideDone(): void,
+  levels: number, level: number, onLevel: (level: number | 'all') => void, hideDone: boolean, onHideDone: () => void
   /** R24 (D68): the due/status filter (per view). */
-  dueFilter: DueFilter, onDueFilter(f: DueFilter): void,
-  minimap: boolean, onMinimap(): void, focusMode: boolean, canFocusMode: boolean, onFocusMode(): void, onAddLabel(): void,
+  dueFilter: DueFilter, onDueFilter: (f: DueFilter) => void
+  minimap: boolean, onMinimap: () => void, focusMode: boolean, canFocusMode: boolean, onFocusMode: () => void, onAddLabel: () => void
   /** Round 8: a new node in the middle of the view, the whole board tidied, and the board exported. */
-  onAddNode(): void, onTidyBoard(merge?: boolean): void, onExport(kind: ExportKind): void,
+  onAddNode: () => void, onTidyBoard: (merge?: boolean) => void, onExport: (kind: ExportKind) => void
 }
 export type ExportKind = 'markdown' | 'svg' | 'png' | 'html'
 
 export function CanvasControls({ zoom, boardOpen, snap, canFocus, onBoardStyle, onZoomIn, onZoomOut, onZoomReset, onFit, onFocus, onSnap, tools }: {
   zoom: number, boardOpen: boolean, snap: boolean, canFocus: boolean,
-  onBoardStyle(): void, onZoomIn(): void, onZoomOut(): void, onZoomReset(): void, onFit(): void, onFocus(): void, onSnap(): void, tools: ViewTools,
+  onBoardStyle: () => void, onZoomIn: () => void, onZoomOut: () => void, onZoomReset: () => void, onFit: () => void, onFocus: () => void, onSnap: () => void, tools: ViewTools,
 }) {
   const [levelsOpen, setLevelsOpen] = useState(false), [exportOpen, setExportOpen] = useState(false)
   const level = (l: number | 'all') => { setLevelsOpen(false); tools.onLevel(l) }
@@ -729,7 +730,7 @@ const FILTER_ROWS: [DueView, string][] = [['overdue', 'Overdue'], ['today', 'Due
 
 /** R24 (D68): the filter button, its checkbox menu and the "due in the next N days" stepper. The menu stays open while
  *  boxes are ticked (each applies at once) and closes on a click outside it. */
-function DueFilterControls({ filter, onChange }: { filter: DueFilter, onChange(f: DueFilter): void }) {
+function DueFilterControls({ filter, onChange }: { filter: DueFilter, onChange: (f: DueFilter) => void }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => {

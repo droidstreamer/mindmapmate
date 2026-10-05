@@ -673,6 +673,13 @@ input.flowmap-hsl-track::-webkit-slider-thumb { box-sizing: border-box; cursor: 
   max-width: none;
 }
 
+/* The checkbox, due chip and progress take --flowmap-narrow from the text's room (set per measured node).
+   Round 13: not on fixed widths, or a node set wider than the max measured clamped (two lines, so tidy left a gap). */
+.flowmap-measure > .flowmap-node:not(.has-width) {
+  min-width: calc(var(--flowmap-node-min) - var(--flowmap-narrow, 0px));
+  max-width: calc(var(--flowmap-node-max) - var(--flowmap-narrow, 0px));
+}
+
 .flowmap-error {
   max-width: 40em;
   margin: 3em auto;

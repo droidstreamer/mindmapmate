@@ -66,7 +66,7 @@ export function validateBoard(input: unknown): ValidationResult {
   const schema = input.schema
   if (!Number.isInteger(schema) || (schema as number) < 1) return fail('Missing or invalid "schema" number.')
   if ((schema as number) > SCHEMA_VERSION)
-    return { ok: false, reason: 'newer-schema', message: `This board uses schema ${schema}, but this plugin version only understands up to ${SCHEMA_VERSION}. Update the plugin to edit it.` }
+    return { ok: false, reason: 'newer-schema', message: `This board uses schema ${String(schema)}, but this plugin version only understands up to ${SCHEMA_VERSION}. Update the plugin to edit it.` }
 
   let data = input
   for (let v = schema as number; v < SCHEMA_VERSION; v++) data = migrations[v](data)
@@ -86,7 +86,7 @@ export function validateBoard(input: unknown): ValidationResult {
     if (typeof n.text !== 'string') return fail(`Node "${n.id}" has no text.`)
     for (const k of ['order', 'x', 'y'])
       if (typeof n[k] !== 'number' || !Number.isFinite(n[k])) return fail(`Node "${n.id}" has an invalid "${k}".`)
-    if (n.status !== undefined && !STATUSES.has(n.status as string)) return fail(`Node "${n.id}" has an unknown status "${String(n.status)}".`)
+    if (n.status !== undefined && !STATUSES.has(n.status as string)) return fail(`Node "${n.id}" has an unknown status ${JSON.stringify(n.status)}.`)
   }
 
   const nodes = data.nodes as BoardNode[]

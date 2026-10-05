@@ -48,29 +48,29 @@ const NONE: never[] = []
 
 /** What the Obsidian view and its commands can ask of a mounted canvas. */
 export interface CanvasApi {
-  selectedIds(): string[]
+  selectedIds: () => string[]
   /** Selects one node and pans it into view. */
-  select(id: string): void
+  select: (id: string) => void
   /** D21: selects one node and centres it at 100% zoom or closer. */
-  focus(id: string): void
-  run(action: Action): void
+  focus: (id: string) => void
+  run: (action: Action) => void
   /** M4b: shows or hides the Board style toolbar. */
-  toggleBoardStyle(): void
+  toggleBoardStyle: () => void
   /** F9: focus on the selected branch (dimming the rest and fitting it), or leave focus mode. */
-  toggleFocusMode(): void
+  toggleFocusMode: () => void
   /** Round 6 (N3): adds a label and starts typing it. */
-  addLabel(): void
+  addLabel: () => void
   /** M7: selects these nodes (those drawn) and fits them in the view. */
-  selectAndFit(ids: string[]): void
+  selectAndFit: (ids: string[]) => void
   /** F16: the board as drawn (collapsed and hidden branches left out) as an SVG image. */
   /** `interactive`: every node (collapsed ones too) with the markup the HTML page's script needs. */
-  exportSvg(interactive?: boolean): { svg: string, width: number, height: number, background: string, colors: HtmlColors }
+  exportSvg: (interactive?: boolean) => { svg: string, width: number, height: number, background: string, colors: HtmlColors }
   /** F6: tidies the given branches (all roots when null), after `before` in the same undo step. */
-  tidy(ids: string[] | null, before?: Command): void
+  tidy: (ids: string[] | null, before?: Command) => void
   /** Round 8: re-tidies the trees of these nodes when "Tidy as you add" is on (round 13: after a checkbox comes or goes). */
-  autoTidy(...ids: string[]): void
+  autoTidy: (...ids: string[]) => void
   /** Spike A: pan and zoom at the fitted view, then at 100% zoom around the first node. */
-  measurePanZoom(): Promise<{ fitted: PanZoomResult, zoomedIn: PanZoomResult }>
+  measurePanZoom: () => Promise<{ fitted: PanZoomResult, zoomedIn: PanZoomResult }>
 }
 
 export interface BoardCanvasProps {
@@ -81,22 +81,22 @@ export interface BoardCanvasProps {
   wheelZoom: boolean
   /** F8: done and dropped branches are not drawn. A view setting, never saved in the file. */
   hideDone: boolean
-  onHideDoneChange(hide: boolean): void
+  onHideDoneChange: (hide: boolean) => void
   /** F16: the minimap shows (a plugin setting). */
   minimap: boolean
-  onMinimapChange(show: boolean): void
-  onSnapChange(snap: boolean): void
+  onMinimapChange: (show: boolean) => void
+  onSnapChange: (snap: boolean) => void
   links: BoardLinks
   /** D38: copy takes whole branches instead of just the selected nodes. A plugin setting. */
   copyBranch: boolean
   /** D41: fonts used on boards (a plugin setting), and a font just used. */
   recentFonts: string[]
-  onFontUsed(font: string): void
+  onFontUsed: (font: string) => void
   /** M5b: Link to a note or Promote to a note, from the node palette's Link menu. */
-  onNoteAction(action: NoteAction, id: string): void
-  onFirstPaint(): void
+  onNoteAction: (action: NoteAction, id: string) => void
+  onFirstPaint: () => void
   /** Round 8: the Export menu in the canvas controls runs the plugin's export commands. */
-  onExport(kind: ExportKind): void
+  onExport: (kind: ExportKind) => void
   /** Round 11: shortcut hints for the current selection along the bottom while the board has focus (a plugin setting). */
   hints: boolean
   /** Round 11: the snap grid's dots show (a plugin setting), in this "#rrggbb" color or React Flow's grey when empty. */
@@ -107,20 +107,20 @@ export interface BoardCanvasProps {
 
 /** F10: note links, answered by Obsidian. A link text is a wikilink target ("Note#Heading") or a link field's path. */
 export interface BoardLinks {
-  resolved(linktext: string): boolean
-  open(linktext: string, newTab: boolean): void
+  resolved: (linktext: string) => boolean
+  open: (linktext: string, newTab: boolean) => void
   /** Page preview on hover. */
-  hover(event: MouseEvent, targetEl: HTMLElement, linktext: string): void
+  hover: (event: MouseEvent, targetEl: HTMLElement, linktext: string) => void
   /** M6b: notes matching what follows `[[` in a node, best first (up to 8), as link text and path. */
-  suggest(query: string): { linktext: string, path: string }[]
+  suggest: (query: string) => { linktext: string, path: string }[]
 }
 
 interface NodeActions {
   /** `then: 'addChild'` is Tab in the editor: finish this node and start typing its first child. */
-  commitText(id: string, text: string, then?: 'addChild'): void
-  toggleCollapse(id: string): void
-  toggleDone(id: string): void
-  resize(id: string, width: number, position: Point, side: 'left' | 'right'): void
+  commitText: (id: string, text: string, then?: 'addChild') => void
+  toggleCollapse: (id: string) => void
+  toggleDone: (id: string) => void
+  resize: (id: string, width: number, position: Point, side: 'left' | 'right') => void
   links: BoardLinks
 }
 const Actions = createContext<NodeActions>(null!)
@@ -432,7 +432,7 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
     const up = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
-      setTimeout(() => { suppressClick.current = false })
+      window.setTimeout(() => { suppressClick.current = false })
       if (!started) return
       // React Flow's rectangle select always takes a node left marked as dragging, so the mark must come off.
       onNodesChange(last.map(n => ({ id: n.id, type: 'position', position: { ...n.position }, dragging: false })))
@@ -894,7 +894,7 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
     },
     exportSvg: interactive => {
       const el = wrapper.current!, vis = interactive ? store.board : visibleRef.current, cs = getComputedStyle(el)
-      const probe = el.createEl('div')
+      const probe = el.createDiv()
       probe.className = 'flowmap-node'
       // Font as the board draws node text: from a node on screen when there is one.
       const shown = getComputedStyle(el.querySelector('.react-flow__node .flowmap-node-text') ?? probe)
@@ -1180,22 +1180,18 @@ function NoteLink({ linktext, label, links }: { linktext: string, label: string,
  */
 function fitDiamond(el: HTMLElement, diamond: boolean) {
   if (!diamond && !el.style.padding) return // nothing to undo: most nodes, most renders
-  el.style.padding = diamond ? '0' : ''
-  el.style.maxWidth = ''
-  el.style.width = ''
+  el.setCssStyles({ padding: diamond ? '0' : '', maxWidth: '', width: '' })
   if (!diamond) return
   const w = el.offsetWidth
   if (el.classList.contains('has-width')) {
-    el.style.width = `${w * DIAMOND_FIT.x}px`
+    el.setCssStyles({ width: `${w * DIAMOND_FIT.x}px` })
     const h = el.offsetHeight
-    el.style.width = ''
-    el.style.padding = `${h * (1 / DIAMOND_FIT.y - 1) / 2}px ${w * (1 - DIAMOND_FIT.x) / 2}px`
+    el.setCssStyles({ width: '', padding: `${h * (1 / DIAMOND_FIT.y - 1) / 2}px ${w * (1 - DIAMOND_FIT.x) / 2}px` })
     return
   }
   // The content wraps at the node's maximum width; the padded box then goes past it.
   const h = el.offsetHeight
-  el.style.padding = `${h * (1 / DIAMOND_FIT.y - 1) / 2}px ${w * (1 / DIAMOND_FIT.x - 1) / 2}px`
-  el.style.maxWidth = 'none'
+  el.setCssStyles({ padding: `${h * (1 / DIAMOND_FIT.y - 1) / 2}px ${w * (1 / DIAMOND_FIT.x - 1) / 2}px`, maxWidth: 'none' })
 }
 
 type Box = { x0: number, y0: number, x1: number, y1: number }
@@ -1210,8 +1206,8 @@ function oneLineWidth(container: HTMLElement, id: string): number | undefined {
   if (!el || el.classList.contains('shape-diamond')) return undefined
   const copy = container.appendChild(el.cloneNode(true) as HTMLElement)
   copy.classList.remove('has-width')
-  copy.style.cssText += ';position:absolute;visibility:hidden;width:auto;max-width:none'
-  for (const t of copy.querySelectorAll<HTMLElement>('.flowmap-node-text, .flowmap-node-link')) t.style.whiteSpace = 'pre'
+  copy.setCssStyles({ position: 'absolute', visibility: 'hidden', width: 'auto', maxWidth: 'none' })
+  for (const t of copy.querySelectorAll<HTMLElement>('.flowmap-node-text, .flowmap-node-link')) t.setCssStyles({ whiteSpace: 'pre' })
   const width = Math.ceil(copy.getBoundingClientRect().width), max = parseFloat(getComputedStyle(copy).getPropertyValue('--flowmap-node-max'))
   copy.remove()
   return width > max ? width : undefined
@@ -1268,7 +1264,7 @@ function ShortcutHints({ keymap, editing, nodes, lines, wheelZoom }: { keymap: K
 }
 
 /** Path from the root to the selected node (F9). Clicking a step selects that node. */
-function Breadcrumb({ board, selected, onPick }: { board: Board, selected: TaskFlowNode[], onPick(id: string): void }) {
+function Breadcrumb({ board, selected, onPick }: { board: Board, selected: TaskFlowNode[], onPick: (id: string) => void }) {
   if (selected.length !== 1) return null
   const id = selected[0].id
   const byId = new Map(board.nodes.map(n => [n.id, n]))
@@ -1351,10 +1347,10 @@ const edgeTypes = { task: TaskEdge }
  */
 function StyleOverlay({ board, styles, nodes, selectedEdges, flyout, setFlyout, boardBar, setBoardBar, hidden, labelEdit, setLabelEdit, mids, sizeOf, store, snap, onSnap, onFit, onFocus, onNote, onArrange, onTasks, setSelectedEdges, recentFonts, onFontUsed, tools }: {
   board: Board, styles: ReturnType<typeof resolveStyles>, nodes: TaskFlowNode[], selectedEdges: ReadonlySet<string>,
-  flyout: string | null, setFlyout(f: string | null): void, boardBar: boolean, setBoardBar(on: boolean): void, hidden: boolean,
-  labelEdit: string | null, setLabelEdit(id: string | null): void, mids: Map<string, Point>, sizeOf(id: string): Size, store: BoardStore,
-  snap: boolean, onSnap(): void, onFit(): void, onFocus(): void, onNote(action: NoteAction): void, onArrange(how: Arrange): void, onTasks(ids: string[]): void,
-  setSelectedEdges(ids: ReadonlySet<string>): void, recentFonts: string[], onFontUsed(font: string): void, tools: ViewTools,
+  flyout: string | null, setFlyout: (f: string | null) => void, boardBar: boolean, setBoardBar: (on: boolean) => void, hidden: boolean,
+  labelEdit: string | null, setLabelEdit: (id: string | null) => void, mids: Map<string, Point>, sizeOf: (id: string) => Size, store: BoardStore,
+  snap: boolean, onSnap: () => void, onFit: () => void, onFocus: () => void, onNote: (action: NoteAction) => void, onArrange: (how: Arrange) => void, onTasks: (ids: string[]) => void
+  setSelectedEdges: (ids: ReadonlySet<string>) => void, recentFonts: string[], onFontUsed: (font: string) => void, tools: ViewTools,
 }) {
   const [tx, ty, zoom] = useStore(s => s.transform)
   const canvasW = useStore(s => s.width)
@@ -1455,12 +1451,12 @@ function focusWhenVisible(el: HTMLTextAreaElement | null) {
  * (a full row per node made tidy about 40 ms slower at 2,000 nodes).
  */
 function measureSizes(container: HTMLElement, nodes: BoardNode[], counts: ReadonlyMap<string, Counts>, looks: Map<string, NodeLook>): Map<string, Size> {
-  const box = container.createEl('div')
+  const box = container.createDiv()
   box.className = 'flowmap-measure'
   const label = (n: BoardNode) => { const c = counts.get(n.id); return c ? progress(c.done, c.tasks) : '' }
-  const sample = box.createEl('div').createEl('div')
+  const sample = box.createDiv().createDiv()
   sample.className = 'flowmap-node-row'
-  const span = (cls: string, text = '') => { const el = sample.createEl('span'); el.className = cls; el.textContent = text; return el }
+  const span = (cls: string, text = '') => { const el = sample.createSpan(); el.className = cls; el.textContent = text; return el }
   // Round 13: the node's own checkbox element, margins counted: Obsidian gives task checkboxes a side margin a span
   // didn't have, so text measured 6px roomier than drawn and a node that just wraps measured one line short (overlaps).
   const check = sample.createEl('input')
@@ -1476,12 +1472,6 @@ function measureSizes(container: HTMLElement, nodes: BoardNode[], counts: Readon
   const checkStyle = getComputedStyle(check)
   const checkWidth = check.offsetWidth + parseFloat(checkStyle.marginLeft) + parseFloat(checkStyle.marginRight) + gap
   const extra = nodes.map(n => (n.status ? checkWidth : 0) + (widths.get(label(n)) ?? 0) + (chipWidths.get(chip(n)) ?? 0))
-  // One class per distinct narrowing rather than inline styles, so identical nodes still share their
-  // computed style (inline styles cost about 30 ms more at 2,000 nodes).
-  const narrow = [...new Set(extra)]
-  box.createEl('style').textContent = narrow.map((x, k) =>
-    // Round 13: not on fixed widths, or a node set wider than the max measured clamped (two lines, so tidy left a gap).
-    `.flowmap-measure > .flowmap-node.narrow-${k}:not(.has-width) { min-width: calc(var(--flowmap-node-min) - ${x}px); max-width: calc(var(--flowmap-node-max) - ${x}px) }`).join('\n')
   // M6: most nodes are one line of plain text in a plain shape. Those are sized with canvas measureText, with no layout:
   // one sample node per shape gives its padding and border, height and width limits (laying out 5,000 hidden nodes
   // took about 300 ms). The rest (wrapping or several lines, fixed widths, links, circles, diamonds) are laid out below.
@@ -1491,9 +1481,9 @@ function measureSizes(container: HTMLElement, nodes: BoardNode[], counts: Readon
   const shapeSample = (shape: Shape) => {
     let m = shapes.get(shape)
     if (m) return m
-    const el = box.createEl('div')
+    const el = box.createDiv()
     el.className = nodeClass({ id: '', parent: null, order: 0, text: '', x: 0, y: 0 }, shape)
-    const text = el.createEl('div')
+    const text = el.createDiv()
     text.className = 'flowmap-node-text'
     text.textContent = SAMPLE
     ctx.font = getComputedStyle(text).font
@@ -1516,18 +1506,20 @@ function measureSizes(container: HTMLElement, nodes: BoardNode[], counts: Readon
   })
   const els = slow.map(i => {
     const n = nodes[i]
-    const el = box.createEl('div')
-    el.className = `${nodeClass(n, looks.get(n.id)?.shape ?? 'round')} narrow-${narrow.indexOf(extra[i])}`
-    if (looks.get(n.id)?.shape === 'diamond') el.style.padding = '0' // sized from its content, as fitDiamond does
+    const el = box.createDiv()
+    el.className = nodeClass(n, looks.get(n.id)?.shape ?? 'round')
+    // The checkbox, chip and progress take room from the text (see .flowmap-measure in styles.css).
+    el.setCssProps({ '--flowmap-narrow': `${extra[i]}px` })
+    if (looks.get(n.id)?.shape === 'diamond') el.setCssStyles({ padding: '0' }) // sized from its content, as fitDiamond does
     const labelSize = looks.get(n.id)?.size
-    if (labelSize) el.style.setProperty('--tm-size', `${labelSize}px`)
-    if (n.width) el.style.width = `${(looks.get(n.id)?.shape === 'diamond' ? n.width * DIAMOND_FIT.x : n.width) - extra[i]}px`
-    const text = el.createEl('div')
+    if (labelSize) el.setCssProps({ '--tm-size': `${labelSize}px` })
+    if (n.width) el.setCssStyles({ width: `${(looks.get(n.id)?.shape === 'diamond' ? n.width * DIAMOND_FIT.x : n.width) - extra[i]}px` })
+    const text = el.createDiv()
     text.className = 'flowmap-node-text'
     text.textContent = (n.text.includes('[[') ? displayText(n.text) : n.text) || '\u00a0'
     // ponytail: the link line is narrowed with the text; a link wider than text plus extras is slightly underestimated.
     if (n.link) {
-      const link = el.createEl('div')
+      const link = el.createDiv()
       link.className = 'flowmap-node-link'
       link.textContent = `↗ ${basename(n.link)}`
     }

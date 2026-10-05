@@ -1,6 +1,6 @@
 {
   "name": "mindmapmate",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Visual task mindmap board for Obsidian",
   "type": "module",

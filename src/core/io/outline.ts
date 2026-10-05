@@ -105,7 +105,7 @@ export function copyClip(board: Board, ids: Iterable<string>, branch = true): st
 /** Clipboard JSON back into nodes and links with ids new to `board`. Undefined if it isn't a valid clip of ours. */
 export function readClip(json: string, board: Board): Clip | undefined {
   let data: Record<string, unknown>
-  try { data = JSON.parse(json) } catch { return undefined }
+  try { data = JSON.parse(json) as Record<string, unknown> } catch { return undefined }
   if (data?.[MARKER] !== 1) return undefined
   // Clipboard text is untrusted: it must pass the same checks as a board file.
   const valid = validateBoard({ schema: SCHEMA_VERSION, theme: {}, nodes: data.nodes, links: data.links })

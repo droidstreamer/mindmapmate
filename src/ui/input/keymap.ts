@@ -61,7 +61,9 @@ export function keyLabel(binding: string): string {
   return binding.split('+').map(p => p === 'Mod' ? (isMac ? 'Cmd' : 'Ctrl') : KEY_NAMES[p] ?? p.replace(/^(Digit|Key)(.)$/, '$2')).join('+')
 }
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+/** Mod is Cmd on macOS. The plugin sets this from Obsidian's Platform at load; this file stays free of Obsidian imports. */
+let isMac = false
+export const setMacKeys = (mac: boolean) => { isMac = mac }
 
 function matches(e: KeyboardEvent, binding: string): boolean {
   const parts = binding.split('+')

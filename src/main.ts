@@ -1,4 +1,4 @@
-import { FuzzySuggestModal, MarkdownView, normalizePath, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, type App, type SettingDefinitionItem } from 'obsidian'
+import { FuzzySuggestModal, MarkdownView, normalizePath, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, TFolder, type App, type SettingDefinitionItem } from 'obsidian'
 import { collapseToLevel, expandAll, setCollapsed, setDirection, setLink, setStatus, sortChildren } from './core/commands.ts'
 import { noteName } from './core/links.ts'
 import { DIRECTIONS, type Direction } from './core/layout/tidy.ts'
@@ -11,7 +11,7 @@ import { SCHEMA_VERSION, type Status } from './core/schema.ts'
 import { BoardView, type BoardHost } from './obsidian/BoardView.ts'
 import { registerLinkUpdates } from './obsidian/links.ts'
 import { isBoardFile, openAsBoard, openAsMarkdown, patchSetViewState, VIEW_TYPE } from './obsidian/openAsBoard.ts'
-import { DEFAULT_KEYS, type Action, type Keymap } from './ui/input/keymap.ts'
+import { DEFAULT_KEYS, setMacKeys, type Action, type Keymap } from './ui/input/keymap.ts'
 import type { ExportKind, NoteAction } from './ui/StyleBars.tsx'
 import { svgToPng } from './ui/exportImage.ts'
 import { htmlPage } from './ui/exportHtml.ts'
@@ -117,6 +117,7 @@ export default class MindmapMatePlugin extends Plugin implements BoardHost {
   }
 
   async onload() {
+    setMacKeys(Platform.isMacOS)
     const saved = await this.loadData() as Partial<Settings> | null
     this.settings = { ...this.settings, ...saved }
     if (saved && !saved.gridDotsOff15) await this.saveData(Object.assign(this.settings, { gridDots: false, gridDotsOff15: true }))
@@ -259,7 +260,6 @@ export default class MindmapMatePlugin extends Plugin implements BoardHost {
       const fmt = (r: typeof fitted) => `${r.fps} fps (p95 frame ${r.p95FrameMs} ms, up to ${r.mountedNodes} nodes mounted)`
       const report = `${view.file?.name}: ${store.board.nodes.length} nodes. Open ${view.openMs} ms. `
         + `Pan/zoom fitted: ${fmt(fitted)}; at 100%: ${fmt(zoomedIn)}. Serialize ${saveMs} ms.`
-      console.log(`MindmapMate performance: ${report}`)
       new Notice(report, 15000)
     })
   }
@@ -371,7 +371,7 @@ class MindmapMateSettings extends PluginSettingTab {
 
   getControlValue(key: string): unknown {
     const v = this.plugin.settings[key as keyof Settings]
-    return key === 'exportHeadings' ? String(v) : v
+    return key === 'exportHeadings' ? String(this.plugin.settings.exportHeadings) : v
   }
 
   setControlValue(key: string, value: unknown) {

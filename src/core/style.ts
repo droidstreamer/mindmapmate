@@ -62,7 +62,7 @@ export function boardStyle(board: Pick<Board, 'theme'>): BoardStyle {
     textColor: t.textColor === 'ink' || t.textColor === 'muted' || t.textColor === 'node' || isColor(t.textColor) ? t.textColor : d.textColor,
     fillOutline: typeof t.fillOutline === 'boolean' ? t.fillOutline : d.fillOutline,
     autoTidy: typeof t.autoTidy === 'boolean' ? t.autoTidy : d.autoTidy,
-    customColors: Array.isArray(t.customColors) ? t.customColors.filter(c => typeof c === 'string' && HEX.test(c)).slice(0, MAX_CUSTOM) : d.customColors,
+    customColors: Array.isArray(t.customColors) ? (t.customColors as unknown[]).filter((c): c is string => typeof c === 'string' && HEX.test(c)).slice(0, MAX_CUSTOM) : d.customColors,
   }
 }
 

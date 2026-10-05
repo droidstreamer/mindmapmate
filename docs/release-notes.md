@@ -2,6 +2,12 @@
 
 Newest first. Only recent versions are listed here; earlier rounds are in the wiki's MindmapMate Milestones page.
 
+## 1.0.2
+- **Community review fixes:** styles are set through Obsidian's helpers, the node sizer no longer adds a style element, and Mac keys are detected with Obsidian's Platform API.
+- **No script elements:** the bundled React DOM can no longer add script tags to the page (MindmapMate never needed them), and the build checks for it.
+- **Fix, settings colors:** the due date color swatches show the theme's red, orange and grey again (they showed black in the Settings window).
+- **Cleaner code:** popout-safe timers, no console logging, stricter types.
+
 ## 1.0.1
 - **Ready for the community directory:** the plugin id is now `mindmapmate` (was `flowmap`). To keep your settings, rename the vault folder `.obsidian/plugins/flowmap` to `mindmapmate` before installing. Board files are unchanged.
 - **Hotkeys need setting again:** hotkeys you gave MindmapMate commands were saved under the old id. Set them again in Settings > Hotkeys (search "MindmapMate").

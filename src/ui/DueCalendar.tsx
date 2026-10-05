@@ -5,11 +5,11 @@ import { dayOf, isDue, monthDays } from '../core/due.ts'
 
 /** The locale's first weekday as 0 Sunday … 6 Saturday (Sunday where the browser can't say). */
 function firstWeekday(): number {
-  const info = (new Intl.Locale(navigator.language) as { getWeekInfo?(): { firstDay: number }, weekInfo?: { firstDay: number } })
+  const info = (new Intl.Locale(navigator.language) as { getWeekInfo?: () => { firstDay: number }, weekInfo?: { firstDay: number } })
   return ((info.getWeekInfo?.() ?? info.weekInfo)?.firstDay ?? 7) % 7
 }
 
-export function DueCalendar({ value, onPick }: { value?: string, onPick(day: string): void }) {
+export function DueCalendar({ value, onPick }: { value?: string, onPick: (day: string) => void }) {
   const today = dayOf(), first = firstWeekday()
   const start = isDue(value) ? value : today
   const [[year, month], setView] = useState<[number, number]>(() => [+start.slice(0, 4), +start.slice(5, 7) - 1])

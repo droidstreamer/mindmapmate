@@ -14,6 +14,9 @@ const banned = [
   [/\bnew\s+Function\s*\(/, 'new Function()'],
   [/\bimport\s*\(/, 'dynamic import()'],
   [/\bimportScripts\b/, 'importScripts'],
+  [/createElement\(\s*["'`]script/i, 'script elements'],
+  // The HTML export's page template holds its own <script> as text for the saved file; only DOM injection is banned.
+  [/innerHTML\s*=\s*["'`]<script/i, 'script markup through innerHTML'],
 ]
 // Error-message links in React and React Flow, and XML namespace strings. None are fetched.
 // `${t}flow.dev` is React Flow's error link, built as reactflow.dev or svelteflow.dev.

@@ -24,6 +24,6 @@ export async function saveAs(name: string, ext: string, data: string | Uint8Arra
   a.href = URL.createObjectURL(new Blob([data], { type }))
   a.download = file
   a.click()
-  setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
+  window.setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
   return file
 }

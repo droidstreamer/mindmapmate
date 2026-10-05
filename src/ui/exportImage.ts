@@ -13,11 +13,11 @@ import type { Counts } from '../core/tree.ts'
 import type { Size } from '../core/layout/tidy.ts'
 
 export type ImageInput = {
-  nodes: BoardNode[], links: Board['links'], styles: ReturnType<typeof resolveStyles>, size(id: string): Size, vertical: boolean
+  nodes: BoardNode[], links: Board['links'], styles: ReturnType<typeof resolveStyles>, size: (id: string) => Size, vertical: boolean
   /** Progress counts from the whole board, so collapsed branches still count (as on the board). */
   counts: ReadonlyMap<string, Counts>
   /** Resolves a CSS color (often a variable) to a real one. */
-  color(css: string): string
+  color: (css: string) => string
   font: string, fontSize: number, lineHeight: number, text: string, background: string, accent: string
   /** Round 17: the HTML page's markup: data attributes and classes its script moves, collapses and checks with (see exportHtml.ts). */
   interactive?: boolean
