@@ -8,4 +8,5 @@ if (existsSync(target)) {
   process.exit(1)
 }
 cpSync('dist', target, { recursive: true })
+cpSync('docs/release-notes.md', `${target}/release-notes.md`) // every build folder carries its notes
 console.log(`ship: ${target}/ (install by copying it to <vault>/.obsidian/plugins/mindmapmate/)`)

@@ -384,7 +384,9 @@ class MindmapMateSettings extends PluginSettingTab {
     const dueKeys = [['dueOverdue', 'Overdue color', 'var(--color-red)'], ['dueToday', 'Due today color', 'var(--color-orange)'], ['dueLater', 'Later date color', 'var(--text-muted)']] as [ColorKey, string, string][]
     return [
       // Round 17: what MindmapMate is, its version and author. Round 18: the version is a small subline. Round 19: a normal-size title, and the coffee button right-aligned after "Made with care".
-      { name: 'MindmapMate', searchable: false, render: row => this.header(row) },
+      // R28: the About block on its own card, as in FolderMate; the options on a second card below it.
+      { type: 'group', items: [{ name: 'MindmapMate', searchable: false, render: row => this.header(row) }] },
+      { type: 'group', items: [
       { name: 'Mouse wheel', desc: 'Zoom, like Canvas. Choose pan if you use a trackpad: then the wheel pans, and Ctrl (Cmd) + wheel zooms.',
         control: { type: 'dropdown', key: 'wheel', options: { zoom: 'Zoom', pan: 'Pan' } } },
       { name: 'Copy', desc: 'What Ctrl (Cmd) + C takes from a board. Pasted nodes go beside the selected node. Cut always takes the whole branch.',
@@ -412,7 +414,7 @@ class MindmapMateSettings extends PluginSettingTab {
             const tab = s.openTabById('hotkeys')
             tab?.searchComponent?.setValue('MindmapMate'); tab?.searchComponent?.onChanged()
           }))
-        } },
+        } }] },
     ]
   }
 

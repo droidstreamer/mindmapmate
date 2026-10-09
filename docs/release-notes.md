@@ -2,6 +2,9 @@
 
 Newest first. Only recent versions are listed here; earlier rounds are in the wiki's MindmapMate Milestones page.
 
+## 1.0.4
+- **About box:** the MindmapMate introduction at the top of the settings sits on its own card, as in FolderMate, and the options sit on a second card below it.
+
 ## 1.0.3
 - **Community review:** note links on nodes take their underline from Obsidian's own link style, so the stylesheet no longer uses partly supported text-decoration features. They look the same.
 

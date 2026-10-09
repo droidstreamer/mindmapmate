@@ -1473,6 +1473,9 @@ check('two tabs: an edit in one reaches the other', await ev(`
     return { name: parseFloat(getComputedStyle(n).fontSize), ver: parseFloat(getComputedStyle(v).fontSize), right: Math.round(f.right - a.right), before: t.right <= a.left, gap: Math.round(a.left - t.right), text: c.querySelector('.flowmap-about-footer span').textContent }`)
   const dueSw = await ev(`return ['Overdue color', 'Due today color', 'Later date color'].map(l => ${tab}.containerEl.querySelector('.flowmap-swatch[aria-label="' + l + '"]')?.style.background)`)
   check('settings: a Due date colors row with three swatches in the theme\'s colors (R24)', dueSw.every(c => c && c !== 'rgb(0, 0, 0)') && new Set(dueSw).size === 3, JSON.stringify(dueSw))
+  const cards = await ev(`const c = ${tab}.containerEl, r = c.querySelector('.flowmap-about-row'), items = r.parentElement, next = items.closest('.setting-group').nextElementSibling?.querySelector('.setting-items')
+    return { alone: items.children.length === 1, bg: getComputedStyle(items).backgroundColor, line: getComputedStyle(c.querySelector('.flowmap-about')).borderBottomWidth, options: next?.querySelector('.setting-item-name')?.textContent }`)
+  check('settings: About alone on its own card, the options on a second card below it (R28, as FolderMate)', cards.alone && cards.bg !== 'rgba(0, 0, 0, 0)' && cards.line === '0px' && cards.options === 'Mouse wheel', JSON.stringify(cards))
   await ev(`${tab}.hide(); ${tab}.containerEl.remove(); return 1`)
   check('settings: the MindmapMate title is larger than the version line; the coffee button sits at the right, just after "Made with care" (rounds 19, 23)',
     head.name > head.ver && head.name >= 16 && head.right <= 2 && head.before && head.gap <= 16 && head.text === 'Made with care', JSON.stringify(head))
@@ -1480,7 +1483,7 @@ check('two tabs: an edit in one reaches the other', await ev(`
     /^MindmapMate\s*v\d+\.\d+\.\d+ · by Droid/.test(about) && /interactive HTML pages/.test(about) && coffee.href === 'https://buymeacoffee.com/droidstreamer' && coffee.img.startsWith('data:image/png') && coffee.h <= 40, JSON.stringify(coffee) + about.slice(0, 60))
   check('settings: one Open hotkeys button, no key list; the tip line, body-text size and flush left with a blank line above it, sits right above the coffee footer (rounds 20, 22)', keys.btn === 'Open hotkeys' && keys.chips === 0 && /small tip/.test(keys.tip) && keys.above && keys.tipSize === keys.bodySize && ['left','start'].includes(keys.tipAlign) && keys.gap >= 14, JSON.stringify(keys))
   // 1.0.1: settings are declarative (Obsidian 1.13), so Obsidian's settings search can find each row.
-  const defs = await ev(`return ${tab}.getSettingDefinitions().map(d => d.name)`)
+  const defs = await ev(`return ${tab}.getSettingDefinitions().flatMap(d => d.items ?? [d]).map(d => d.name)`)
   check('settings are declarative rows that settings search indexes (1.0.1)', ['Mouse wheel', 'Copy', 'Export headings', 'Grid dots', 'Due date colors', 'Shortcut hints', 'Sample board', 'Hotkeys'].every(n => defs.includes(n)), defs.join(', '))
   check('the color picker has no eyedropper; Reset puts the color back to what it was when opened (round 22)', !eye.had && eye.hasReset && eye.changed !== eye.open && eye.reset === (eye.open || '#91919a'), JSON.stringify(eye))
   check('the grid color swatch opens the picker as a popover and a click outside puts it away (rounds 17, 22)', !hsl0 && hsl1 && shownPop && !hsl2, `${hsl0} ${hsl1} ${hsl2}`)
