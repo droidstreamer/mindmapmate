@@ -947,7 +947,8 @@ function Canvas({ store, keymap, snap, wheelZoom, dragPans, hideDone, onHideDone
           // Shift-click adds to the selection. React Flow learns Shift from its own key tracking, which misses a Shift
           // pressed while focus was elsewhere (another pane, a text box); the click itself knows.
           if (rfStore.getState().multiSelectionActive !== e.shiftKey) rfStore.setState({ multiSelectionActive: e.shiftKey })
-          if (e.button === 0 && !e.shiftKey && (e.target as Element).classList.contains('react-flow__pane') && boxDrag(e)) return
+          // Swapped, a plain drag pans, so a press inside the selection box must pan too (not move the selection).
+          if (e.button === 0 && !e.shiftKey && !swapped && (e.target as Element).classList.contains('react-flow__pane') && boxDrag(e)) return
           marqueeBase.current = e.shiftKey ? { nodes: new Set(nodesRef.current.filter(n => n.selected).map(n => n.id)), edges: new Set(selectedEdges) } : null
         }}
         onClickCapture={e => { if (suppressClick.current) e.stopPropagation() }}
@@ -1258,7 +1259,7 @@ function ShortcutHints({ keymap, editing, nodes, lines, wheelZoom, swapped }: { 
   ] : nodes === 1 ? [
     [k('addChild'), 'child'], [k('addSibling'), 'sibling'], [k('editNode'), 'edit'], [k('deleteKeepChildren'), 'delete, keep children'], [`${mod}+drag`, 'move node alone'], ['Alt+drag', 'duplicate'],
   ] : nodes > 1 ? [
-    ['Drag inside box', 'move all'], [`${mod}+drag`, 'without children'], ['Shift+click', 'add or remove'], [k('tidy'), 'tidy'],
+    swapped ? ['Drag a node', 'move all'] : ['Drag inside box', 'move all'], [`${mod}+drag`, 'without children'], ['Shift+click', 'add or remove'], [k('tidy'), 'tidy'],
   ] : lines ? [
     ['Double-click', 'label'], [k('addChild'), 'insert node'], ['Drag start end', 'reparent'], [k('delete'), 'delete'],
   ] : [
