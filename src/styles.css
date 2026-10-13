@@ -171,6 +171,17 @@
   cursor: pointer;
 }
 .flowmap-node .internal-link:hover { color: var(--link-color-hover); }
+
+/* #tags are pills: a light tint of the node's outline color (--tm-stroke), with the text a shade nearer the theme text. */
+.flowmap-tag {
+  --c: var(--tm-stroke, var(--text-normal));
+  padding: 0 0.5em;
+  border-radius: 1em;
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: color-mix(in srgb, var(--c) 75%, var(--text-normal));
+  font-size: 0.9em;
+  line-height: 1.5;
+}
 .flowmap-node .internal-link.is-unresolved {
   color: var(--link-unresolved-color);
   opacity: var(--link-unresolved-opacity);

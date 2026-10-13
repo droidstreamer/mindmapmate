@@ -3,18 +3,25 @@
 // [[linkpath#subpath|alias]]. Obsidian forbids [ ] | # ^ in file names, so the parts can't contain them.
 const WIKILINK = /\[\[([^[\]|#]*)(#[^[\]|]*)?(?:\|([^[\]]*))?\]\]/g
 
-export type Wikilink = { linktext: string, label: string }
-export type TextPart = string | Wikilink
+// #tag: as in Obsidian, it starts the text or follows whitespace, and holds letters, digits, _ - / with at least one non-digit.
+const TAG = /(?<=^|\s)#(?=[\p{L}\p{N}_/-]*[\p{L}_/-])[\p{L}\p{N}_/-]+/u
+const TEXT_PARTS = new RegExp(WIKILINK.source + '|' + TAG.source, 'gu')
 
-/** Node text as plain runs and links. A link shows its alias, else its target as Obsidian does ("Note > Heading"). */
+export type Wikilink = { linktext: string, label: string }
+/** A #tag, drawn as a pill. `label` includes the "#". */
+export type Tag = { tag: string, label: string }
+export type TextPart = string | Wikilink | Tag
+
+/** Node text as plain runs, links and tags. A link shows its alias, else its target as Obsidian does ("Note > Heading"). */
 export function textParts(text: string): TextPart[] {
   const parts: TextPart[] = []
   let last = 0
-  for (const m of text.matchAll(WIKILINK)) {
+  for (const m of text.matchAll(TEXT_PARTS)) {
     if (m.index > last) parts.push(text.slice(last, m.index))
-    const [, path, sub = '', alias] = m
-    parts.push({ linktext: path + sub, label: alias?.trim() || (path + sub.replace(/^#/, path ? ' > ' : '')) })
-    last = m.index + m[0].length
+    const [all, path, sub = '', alias] = m
+    if (all.startsWith('#')) parts.push({ tag: all.slice(1), label: all })
+    else parts.push({ linktext: path + sub, label: alias?.trim() || (path + sub.replace(/^#/, path ? ' > ' : '')) })
+    last = m.index + all.length
   }
   if (last < text.length) parts.push(text.slice(last))
   return parts

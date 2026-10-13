@@ -21,6 +21,16 @@ describe('wikilinks in node text (F10)', () => {
     expect(displayText('[[Games/Boss]] fight')).toBe('Games/Boss fight')
   })
 
+  it('finds #tags as Obsidian does, and leaves anchors, numbers and link subpaths alone', () => {
+    expect(textParts('#todo fix this #area/work-1 now')).toEqual([
+      { tag: 'todo', label: '#todo' }, ' fix this ', { tag: 'area/work-1', label: '#area/work-1' }, ' now',
+    ])
+    expect(textParts('issue #123, a#b, https://x.io/#top and [[Note#Head]]')).toEqual([
+      'issue #123, a#b, https://x.io/#top and ', { linktext: 'Note#Head', label: 'Note > Head' },
+    ])
+    expect(displayText('ship #v2 today')).toBe('ship #v2 today')
+  })
+
   it('maps link paths and keeps subpath and alias', () => {
     const to = (p: string) => p === 'Loot Tables' ? 'Archive/Loot' : undefined
     expect(mapWikilinks('[[Loot Tables#Drops|drops]] [[Loot Tables]] [[Other]]', to)).toBe('[[Archive/Loot#Drops|drops]] [[Archive/Loot]] [[Other]]')
