@@ -21,6 +21,15 @@ describe('wikilinks in node text (F10)', () => {
     expect(displayText('[[Games/Boss]] fight')).toBe('Games/Boss fight')
   })
 
+  it('reads [text](url) links: web and mail open outside, bare paths are notes, other schemes stay text', () => {
+    expect(textParts('see [docs](https://example.com/a?b=1) or [me](mailto:a@b.co) then [Plan](Notes/My%20Plan.md) and [[Boss]]')).toEqual([
+      'see ', { href: 'https://example.com/a?b=1', label: 'docs' }, ' or ', { href: 'mailto:a@b.co', label: 'me' },
+      ' then ', { linktext: 'Notes/My Plan.md', label: 'Plan' }, ' and ', { linktext: 'Boss', label: 'Boss' },
+    ])
+    expect(textParts('[x](javascript:alert(1))')).toEqual(['[x](javascript:alert(1))'])
+    expect(displayText('read [the docs](https://example.com) now')).toBe('read the docs now')
+  })
+
   it('maps link paths and keeps subpath and alias', () => {
     const to = (p: string) => p === 'Loot Tables' ? 'Archive/Loot' : undefined
     expect(mapWikilinks('[[Loot Tables#Drops|drops]] [[Loot Tables]] [[Other]]', to)).toBe('[[Archive/Loot#Drops|drops]] [[Archive/Loot]] [[Other]]')
