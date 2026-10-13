@@ -1,4 +1,4 @@
-import { getLinkpath, prepareFuzzySearch, TextFileView, type HoverParent, type HoverPopover, type WorkspaceLeaf } from 'obsidian'
+import { getLinkpath, Notice, prepareFuzzySearch, TextFileView, type HoverParent, type HoverPopover, type WorkspaceLeaf } from 'obsidian'
 import { createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { setCollapsed } from '../core/commands.ts'
@@ -153,12 +153,21 @@ export class BoardView extends TextFileView implements HoverParent {
     else this.pending.push(run)
   }
 
+  /** Opens Obsidian's search pane for a tag, through the core Search plugin. */
+  private searchTag(tag: string) {
+    type Search = { instance?: { openGlobalSearch?(query: string): void } }
+    const search = (this.app as unknown as { internalPlugins?: { getPluginById(id: string): Search | undefined } }).internalPlugins?.getPluginById('global-search')
+    if (search?.instance?.openGlobalSearch) search.instance.openGlobalSearch(`tag:#${tag}`)
+    else new Notice('Turn on the core Search plugin to search tags.')
+  }
+
   // F10: links in node text and link fields, resolved and opened like Obsidian's own.
   private links(): BoardLinks {
     const source = this.file?.path ?? ''
     return {
       resolved: linktext => !!this.app.metadataCache.getFirstLinkpathDest(getLinkpath(linktext), source),
       open: (linktext, newTab) => void this.app.workspace.openLinkText(linktext, source, newTab),
+      searchTag: tag => this.searchTag(tag),
       hover: (event, targetEl, linktext) => this.app.workspace.trigger('hover-link', { event, source: VIEW_TYPE, hoverParent: this, targetEl, linktext, sourcePath: source }),
       // M6b: `[[` in a node. Fuzzy matches on the path, best first; with nothing typed yet, the latest edited notes.
       suggest: query => {

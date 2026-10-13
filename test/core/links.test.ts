@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeChild, makeLink, retargetLinks } from '../../src/core/commands.ts'
 import { boardData, boardIndex, nodeIdAt, parseBoardFile, replaceBoardJson, serializeBoardFile } from '../../src/core/io/boardFile.ts'
 import { copyClip, parseOutline } from '../../src/core/io/outline.ts'
-import { displayText, mapWikilinks, movedTarget, noteName, textParts } from '../../src/core/links.ts'
+import { displayText, hasTag, mapWikilinks, movedTarget, noteName, textParts } from '../../src/core/links.ts'
 import { validateBoard, type Board, type BoardNode } from '../../src/core/schema.ts'
 import { sampleBoard } from '../../src/core/io/sample.ts'
 import { hexToHsl, hslToHex } from '../../src/core/style.ts'
@@ -29,6 +29,8 @@ describe('wikilinks in node text (F10)', () => {
       'issue #123, a#b, https://x.io/#top and ', { linktext: 'Note#Head', label: 'Note > Head' },
     ])
     expect(displayText('ship #v2 today')).toBe('ship #v2 today')
+    expect(hasTag('ship #v2')).toBe(true)
+    expect(hasTag('issue #123 or [[A#B]]')).toBe(false)
   })
 
   it('maps link paths and keeps subpath and alias', () => {

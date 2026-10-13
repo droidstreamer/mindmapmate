@@ -181,7 +181,9 @@
   color: color-mix(in srgb, var(--c) 75%, var(--text-normal));
   font-size: 0.9em;
   line-height: 1.5;
+  cursor: pointer;
 }
+.flowmap-tag:hover { background: color-mix(in srgb, var(--c) 30%, transparent); }
 .flowmap-node .internal-link.is-unresolved {
   color: var(--link-unresolved-color);
   opacity: var(--link-unresolved-opacity);
