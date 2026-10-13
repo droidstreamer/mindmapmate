@@ -25,6 +25,8 @@ interface Settings {
   snap: boolean
   /** D29: the mouse wheel zooms (like Canvas) unless this is "pan" (for trackpads). */
   wheel: 'zoom' | 'pan'
+  /** What a plain left drag on empty space does: select (Space+drag pans) or pan (Space+drag selects). */
+  drag: 'select' | 'pan'
   /** F16: show the minimap on boards. */
   minimap: boolean
   /** D38: copy takes the selected nodes only, or whole branches. */
@@ -49,10 +51,11 @@ interface Settings {
 }
 
 export default class MindmapMatePlugin extends Plugin implements BoardHost {
-  settings: Settings = { snap: false, wheel: 'zoom', minimap: true, hints: true, gridDots: false, gridDotsOff15: true, gridColor: '', dueOverdue: '', dueToday: '', dueLater: '', copy: 'node', exportHeadings: 2, recentFonts: [], keys: {} }
+  settings: Settings = { snap: false, wheel: 'zoom', drag: 'select', minimap: true, hints: true, gridDots: false, gridDotsOff15: true, gridColor: '', dueOverdue: '', dueToday: '', dueLater: '', copy: 'node', exportHeadings: 2, recentFonts: [], keys: {} }
   keymap: Keymap = DEFAULT_KEYS
 
   get snap() { return this.settings.snap }
+  get dragPans() { return this.settings.drag === 'pan' }
   get wheelZoom() { return this.settings.wheel !== 'pan' }
   get copyBranch() { return this.settings.copy === 'branch' }
   get minimap() { return this.settings.minimap }
@@ -389,6 +392,8 @@ class MindmapMateSettings extends PluginSettingTab {
       { type: 'group', items: [
       { name: 'Mouse wheel', desc: 'Zoom, like Canvas. Choose pan if you use a trackpad: then the wheel pans, and Ctrl (Cmd) + wheel zooms.',
         control: { type: 'dropdown', key: 'wheel', options: { zoom: 'Zoom', pan: 'Pan' } } },
+      { name: 'Drag on the board', desc: 'Select: drag draws a selection box and Space+drag pans, as in Canvas. Pan: drag pans and Space+drag selects. The hand/pointer button and its shortcut swap this for the open board.',
+        control: { type: 'dropdown', key: 'drag', options: { select: 'Select', pan: 'Pan' } } },
       { name: 'Copy', desc: 'What Ctrl (Cmd) + C takes from a board. Pasted nodes go beside the selected node. Cut always takes the whole branch.',
         control: { type: 'dropdown', key: 'copy', options: { node: 'The node only', branch: 'The whole branch' } } },
       { name: 'Export headings', desc: '"Export to Markdown" turns this many top levels into headings (#, ##, …). Deeper levels, and every task, are nested bullets, with no depth limit.',

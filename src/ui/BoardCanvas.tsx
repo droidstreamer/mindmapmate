@@ -79,6 +79,8 @@ export interface BoardCanvasProps {
   snap: boolean
   /** D29: the mouse wheel zooms (true, like Canvas) or pans (for trackpads). A plugin setting. */
   wheelZoom: boolean
+  /** What a plain drag does at first: pans (true) or selects. A plugin setting; the board's swap button overrides it. */
+  dragPans: boolean
   /** F8: done and dropped branches are not drawn. A view setting, never saved in the file. */
   hideDone: boolean
   onHideDoneChange: (hide: boolean) => void
@@ -146,7 +148,7 @@ function syncNodes(nodes: BoardNode[], prev: TaskFlowNode[], editing: string | n
   })
 }
 
-function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, minimap, onMinimapChange, onSnapChange, links, copyBranch, recentFonts, onFontUsed, onNoteAction, onFirstPaint, onExport, hints, gridDots, gridColor, api }: BoardCanvasProps) {
+function Canvas({ store, keymap, snap, wheelZoom, dragPans, hideDone, onHideDoneChange, minimap, onMinimapChange, onSnapChange, links, copyBranch, recentFonts, onFontUsed, onNoteAction, onFirstPaint, onExport, hints, gridDots, gridColor, api }: BoardCanvasProps) {
   const rf = useReactFlow<TaskFlowNode>()
   const rfStore = useStoreApi()
   const board = useSyncExternalStore(store.subscribe, store.getBoard)
@@ -207,6 +209,9 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
   // Last pointer position over the board, where pasted nodes go.
   const pointer = useRef<{ x: number, y: number } | null>(null)
   const [spaceHeld, setSpaceHeld] = useState(false)
+  // Swaps what a plain drag and Space+drag do: pan and select. Starts from the setting; the swap itself is per view, not saved.
+  const [swapped, setSwapped] = useState(dragPans)
+  useEffect(() => setSwapped(dragPans), [dragPans])
   const wrapper = useRef<HTMLDivElement>(null)
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
@@ -783,6 +788,7 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
         return void (one && store.dispatch(swapSibling(one, action === 'moveUp' ? -1 : 1, branchSizes(siblingsOf(store.board, one)))))
       case 'toggleCollapse': return void (selected.length && toggleCollapse(selected.map(n => n.id)))
       case 'tidy': return tidyBranches(selected.length ? selected.map(n => n.id) : null)
+      case 'swapPanSelect': return setSwapped(s => !s)
       case 'toggleDone': return void (selected.length && (store.dispatch(toggleDone(selected.map(n => n.id))), autoTidy(...selected.map(n => n.id))))
     }
   }, [store, fitNodes, selectedEdges, addRelative, insertOnSelectedLine, selectOnly, sizeOf, vertical, branchSizes, toggleCollapse, tidyBranches, focusSelection, autoTidy])
@@ -990,11 +996,13 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
           // right drag pans.
           panOnScroll={!wheelZoom}
           zoomOnScroll
-          panOnDrag={[1, 2]}
-          selectionOnDrag
+          // Swapped (the swapPanSelect key): left drag pans, and Space or Shift + drag selects.
+          panOnDrag={swapped ? [0, 1, 2] : [1, 2]}
+          selectionOnDrag={!swapped}
+          selectionKeyCode={swapped ? ['Shift', 'Space'] : 'Shift'}
           selectionMode={SelectionMode.Full}
-          panActivationKeyCode="Space"
-          zoomActivationKeyCode={['Control', 'Meta', 'Space']}
+          panActivationKeyCode={swapped ? null : 'Space'}
+          zoomActivationKeyCode={swapped ? ['Control', 'Meta'] : ['Control', 'Meta', 'Space']}
           multiSelectionKeyCode="Shift"
           zoomOnDoubleClick={false}
           deleteKeyCode={null}
@@ -1008,11 +1016,11 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
           {gridDots && <Background gap={GRID} offset={0.5 - GRID / 2} color={/^#[0-9a-f]{6}$/i.test(gridColor) ? gridColor : undefined} />}
           <canvas ref={overviewCanvas} className="flowmap-overview" hidden={!overview} />
           {!overview && selBox && <SelectionBox box={selBox} />}
-          {hints && <ShortcutHints keymap={keymap} editing={!!editing} nodes={nodes.filter(n => n.selected).length} lines={selectedEdges.size} wheelZoom={wheelZoom} />}
+          {hints && <ShortcutHints keymap={keymap} editing={!!editing} nodes={nodes.filter(n => n.selected).length} lines={selectedEdges.size} wheelZoom={wheelZoom} swapped={swapped} />}
           <Breadcrumb board={board} selected={nodes.filter(n => n.selected)} onPick={selectOnly} />
           <StyleOverlay board={board} styles={styles} nodes={nodes} selectedEdges={selectedEdges} flyout={flyout} setFlyout={setFlyout}
             boardBar={boardBar} setBoardBar={setBoardBar} hidden={!!editing || dragging || overview} labelEdit={labelEdit} setLabelEdit={setLabelEdit}
-            mids={mids.current} sizeOf={sizeOf} store={store} snap={snap} onSnap={() => onSnapChange(!snap)} onFit={() => fitNodes()} onFocus={focusSelection}
+            mids={mids.current} sizeOf={sizeOf} store={store} snap={snap} onSnap={() => onSnapChange(!snap)} swapped={swapped} swapKey={keymap.swapPanSelect[0] ? keyLabel(keymap.swapPanSelect[0]) : ''} onSwap={() => setSwapped(s => !s)} onFit={() => fitNodes()} onFocus={focusSelection}
             onNote={action => { const [id] = nodesRef.current.filter(n => n.selected); if (id) onNoteAction(action, id.id) }}
             onArrange={arrange} onTasks={ids => autoTidy(...ids)}
             setSelectedEdges={setSelectedEdges} recentFonts={recentFonts} onFontUsed={onFontUsed} tools={{
@@ -1241,7 +1249,7 @@ function SelectionBox({ box }: { box: Box }) {
  * Round 11 (Blender-style): the keys and mouse moves that fit what is selected now, along the bottom while the board
  * has focus (styles.css shows it on :focus-within). Board keys show the user's own bindings.
  */
-function ShortcutHints({ keymap, editing, nodes, lines, wheelZoom }: { keymap: Keymap, editing: boolean, nodes: number, lines: number, wheelZoom: boolean }) {
+function ShortcutHints({ keymap, editing, nodes, lines, wheelZoom, swapped }: { keymap: Keymap, editing: boolean, nodes: number, lines: number, wheelZoom: boolean, swapped: boolean }) {
   const k = (a: Action) => keymap[a][0] ? keyLabel(keymap[a][0]) : ''
   const mod = keyLabel('Mod')
   // One line: the few moves that aren't obvious for this selection (styles.css never wraps it).
@@ -1254,7 +1262,7 @@ function ShortcutHints({ keymap, editing, nodes, lines, wheelZoom }: { keymap: K
   ] : lines ? [
     ['Double-click', 'label'], [k('addChild'), 'insert node'], ['Drag start end', 'reparent'], [k('delete'), 'delete'],
   ] : [
-    ['Shift+drag', 'add to selection'], ['Double-click', 'new node'], ['Space+drag', 'pan'], ['Wheel', wheelZoom ? 'zoom' : 'pan'],
+    swapped ? ['Space+drag', 'select'] : ['Shift+drag', 'add to selection'], ['Double-click', 'new node'], [swapped ? 'Drag' : 'Space+drag', 'pan'], [k('swapPanSelect'), swapped ? 'drag selects' : 'drag pans'], ['Wheel', wheelZoom ? 'zoom' : 'pan'],
   ]
   return (
     <Panel position="bottom-left" className="flowmap-hints">
@@ -1345,11 +1353,11 @@ const edgeTypes = { task: TaskEdge }
  * nodes, the connector palette at the selected line's middle, the line label editor, Board style and the canvas controls.
  * Its own component, so following the viewport re-renders only this, not the whole canvas.
  */
-function StyleOverlay({ board, styles, nodes, selectedEdges, flyout, setFlyout, boardBar, setBoardBar, hidden, labelEdit, setLabelEdit, mids, sizeOf, store, snap, onSnap, onFit, onFocus, onNote, onArrange, onTasks, setSelectedEdges, recentFonts, onFontUsed, tools }: {
+function StyleOverlay({ board, styles, nodes, selectedEdges, flyout, setFlyout, boardBar, setBoardBar, hidden, labelEdit, setLabelEdit, mids, sizeOf, store, snap, onSnap, swapped, swapKey, onSwap, onFit, onFocus, onNote, onArrange, onTasks, setSelectedEdges, recentFonts, onFontUsed, tools }: {
   board: Board, styles: ReturnType<typeof resolveStyles>, nodes: TaskFlowNode[], selectedEdges: ReadonlySet<string>,
   flyout: string | null, setFlyout: (f: string | null) => void, boardBar: boolean, setBoardBar: (on: boolean) => void, hidden: boolean,
   labelEdit: string | null, setLabelEdit: (id: string | null) => void, mids: Map<string, Point>, sizeOf: (id: string) => Size, store: BoardStore,
-  snap: boolean, onSnap: () => void, onFit: () => void, onFocus: () => void, onNote: (action: NoteAction) => void, onArrange: (how: Arrange) => void, onTasks: (ids: string[]) => void
+  snap: boolean, onSnap: () => void, swapped: boolean, swapKey: string, onSwap: () => void, onFit: () => void, onFocus: () => void, onNote: (action: NoteAction) => void, onArrange: (how: Arrange) => void, onTasks: (ids: string[]) => void
   setSelectedEdges: (ids: ReadonlySet<string>) => void, recentFonts: string[], onFontUsed: (font: string) => void, tools: ViewTools,
 }) {
   const [tx, ty, zoom] = useStore(s => s.transform)
@@ -1426,7 +1434,7 @@ function StyleOverlay({ board, styles, nodes, selectedEdges, flyout, setFlyout, 
       <CanvasControls zoom={zoom} boardOpen={boardBar} snap={snap} canFocus={ids.length > 0 || lines.length > 0}
         onBoardStyle={() => { setFlyout(null); setBoardBar(!boardBar) }}
         onZoomIn={() => void rf.zoomIn({ duration: 250 })} onZoomOut={() => void rf.zoomOut({ duration: 250 })}
-        onZoomReset={() => void rf.zoomTo(1, { duration: 250 })} onFit={onFit} onFocus={onFocus} onSnap={onSnap} tools={tools} />
+        onZoomReset={() => void rf.zoomTo(1, { duration: 250 })} onFit={onFit} onFocus={onFocus} onSnap={onSnap} swapped={swapped} swapKey={swapKey} onSwap={onSwap} tools={tools} />
     </div>
   )
 }

@@ -15,6 +15,7 @@ export interface BoardHost {
   keymap: Keymap
   snap: boolean
   wheelZoom: boolean
+  dragPans: boolean
   setSnap(snap: boolean): void
   copyBranch: boolean
   minimap: boolean
@@ -192,6 +193,7 @@ export class BoardView extends TextFileView implements HoverParent {
       keymap: this.host.keymap,
       snap: this.host.snap,
       wheelZoom: this.host.wheelZoom,
+      dragPans: this.host.dragPans,
       hideDone: this.hideDone,
       onHideDoneChange: hide => this.setHideDone(hide),
       minimap: this.host.minimap,
