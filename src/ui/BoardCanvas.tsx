@@ -1136,6 +1136,7 @@ const TaskNode = memo(function TaskNode({ id, data, selected }: NodeProps<TaskFl
         )}
       </>) : (
         <div className="flowmap-node-text">{node.text ? textParts(node.text).map((p, i) => typeof p === 'string' ? p
+          : 'href' in p ? <ExternalLink key={i} href={p.href} label={p.label} />
           : <NoteLink key={i} linktext={p.linktext} label={p.label} links={actions.links} />) : ' '}</div>
       )}
       {data.tasks > 0 && <span className="flowmap-progress" aria-label={`${data.done} of ${data.tasks} tasks done`}>{progress(data.done, data.tasks)}</span>}
@@ -1170,6 +1171,15 @@ function NoteLink({ linktext, label, links }: { linktext: string, label: string,
       onClick={e => { e.preventDefault(); e.stopPropagation(); links.open(linktext, e.ctrlKey || e.metaKey) }}
       onDoubleClick={e => e.stopPropagation()}
       onMouseOver={e => links.hover(e.nativeEvent, e.currentTarget, linktext)}>{label}</a>
+  )
+}
+
+/** A [text](url) link in node text. Click opens the address outside Obsidian (the system browser or mail app). */
+function ExternalLink({ href, label }: { href: string, label: string }) {
+  return (
+    <a className="external-link nodrag" href={href} aria-label={href}
+      onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(href) }}
+      onDoubleClick={e => e.stopPropagation()}>{label}</a>
   )
 }
 

@@ -1,24 +1,39 @@
-// Wikilinks in node text (F10, D11): split for display, and retargeted when a note moves (D19). Pure.
+// Wikilinks and [text](url) links in node text (F10, D11): split for display, and retargeted when a note moves (D19). Pure.
 
 // [[linkpath#subpath|alias]]. Obsidian forbids [ ] | # ^ in file names, so the parts can't contain them.
 const WIKILINK = /\[\[([^[\]|#]*)(#[^[\]|]*)?(?:\|([^[\]]*))?\]\]/g
 
+// [text](url): a web or mail address opens outside Obsidian; a bare path is a note, as in Markdown. Other schemes
+// (javascript:, file:) are not links and stay plain text. A title after the url is not supported.
+const MDLINK = /\[([^[\]]+)\]\(<?([^()\s<>]+)>?\)/
+const TEXT_LINK = new RegExp(WIKILINK.source + '|' + MDLINK.source, 'g')
+const OPEN_SCHEME = /^(https?|mailto|obsidian):/i
+
 export type Wikilink = { linktext: string, label: string }
-export type TextPart = string | Wikilink
+/** A [text](url) link to an address outside the vault. */
+export type ExternalLink = { href: string, label: string }
+export type TextPart = string | Wikilink | ExternalLink
 
 /** Node text as plain runs and links. A link shows its alias, else its target as Obsidian does ("Note > Heading"). */
 export function textParts(text: string): TextPart[] {
   const parts: TextPart[] = []
   let last = 0
-  for (const m of text.matchAll(WIKILINK)) {
+  for (const m of text.matchAll(TEXT_LINK)) {
+    const [all, path, sub = '', alias, mdText, url] = m
+    let part: Wikilink | ExternalLink | undefined
+    if (mdText === undefined) part = { linktext: path + sub, label: alias?.trim() || (path + sub.replace(/^#/, path ? ' > ' : '')) }
+    else if (OPEN_SCHEME.test(url)) part = { href: url, label: mdText.trim() || url }
+    else if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) part = { linktext: safeDecode(url), label: mdText.trim() || safeDecode(url) }
+    if (!part) continue
     if (m.index > last) parts.push(text.slice(last, m.index))
-    const [, path, sub = '', alias] = m
-    parts.push({ linktext: path + sub, label: alias?.trim() || (path + sub.replace(/^#/, path ? ' > ' : '')) })
-    last = m.index + m[0].length
+    parts.push(part)
+    last = m.index + all.length
   }
   if (last < text.length) parts.push(text.slice(last))
   return parts
 }
+
+const safeDecode = (s: string) => { try { return decodeURIComponent(s) } catch { return s } }
 
 /** The text as it reads on the node, for measuring. */
 export const displayText = (text: string) => textParts(text).map(p => typeof p === 'string' ? p : p.label).join('')
