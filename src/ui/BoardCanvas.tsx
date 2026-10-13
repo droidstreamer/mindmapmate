@@ -13,7 +13,7 @@ import { ARROW_PATHS, arrowScale, arrowTransform, dashArray, DIAMOND_FIT, HEAD_L
 import { copyClip, parseOutline, readClip, toMarkdown } from '../core/io/outline.ts'
 import { boardDirection, childSpot, rootSpot, type Size } from '../core/layout/tidy.ts'
 import { dayOf, dueState, filterMatches, isDue, shortDay, type DueFilter } from '../core/due.ts'
-import { displayText, textParts } from '../core/links.ts'
+import { displayText, hasTag, textParts } from '../core/links.ts'
 import { facing, neighbor, trunks, type Side } from '../core/navigate.ts'
 import type { Board, BoardNode, Status } from '../core/schema.ts'
 import type { BoardStore, Command } from '../core/store.ts'
@@ -109,6 +109,8 @@ export interface BoardCanvasProps {
 export interface BoardLinks {
   resolved: (linktext: string) => boolean
   open: (linktext: string, newTab: boolean) => void
+  /** Search the vault for a #tag (without the "#"). */
+  searchTag: (tag: string) => void
   /** Page preview on hover. */
   hover: (event: MouseEvent, targetEl: HTMLElement, linktext: string) => void
   /** M6b: notes matching what follows `[[` in a node, best first (up to 8), as link text and path. */
@@ -1136,6 +1138,7 @@ const TaskNode = memo(function TaskNode({ id, data, selected }: NodeProps<TaskFl
         )}
       </>) : (
         <div className="flowmap-node-text">{node.text ? textParts(node.text).map((p, i) => typeof p === 'string' ? p
+          : 'tag' in p ? <TagPill key={i} tag={p.tag} label={p.label} links={actions.links} />
           : <NoteLink key={i} linktext={p.linktext} label={p.label} links={actions.links} />) : ' '}</div>
       )}
       {data.tasks > 0 && <span className="flowmap-progress" aria-label={`${data.done} of ${data.tasks} tasks done`}>{progress(data.done, data.tasks)}</span>}
@@ -1161,6 +1164,15 @@ const TaskNode = memo(function TaskNode({ id, data, selected }: NodeProps<TaskFl
     </div>
   )
 })
+
+/** A #tag in node text, a pill. Click searches the vault for it. */
+function TagPill({ tag, label, links }: { tag: string, label: string, links: BoardLinks }) {
+  return (
+    <span className="flowmap-tag nodrag" aria-label={`Search ${label}`}
+      onClick={e => { e.stopPropagation(); links.searchTag(tag) }}
+      onDoubleClick={e => e.stopPropagation()}>{label}</span>
+  )
+}
 
 /** F10: a note link on a node. Click opens it (Ctrl or Cmd: in a new tab); hovering shows Obsidian's page preview. A link
  *  to a missing note is drawn faded, and clicking it creates the note, as in Obsidian. */
@@ -1497,7 +1509,7 @@ function measureSizes(container: HTMLElement, nodes: BoardNode[], counts: Readon
   const slow: number[] = []
   nodes.forEach((n, i) => {
     const shape = looks.get(n.id)?.shape ?? 'round', text = n.text.includes('[[') ? displayText(n.text) : n.text
-    if (shape === 'circle' || shape === 'diamond' || shape === 'label' || n.width || n.link || !text || text.includes('\n')) return void slow.push(i)
+    if (shape === 'circle' || shape === 'diamond' || shape === 'label' || n.width || n.link || !text || text.includes('\n') || hasTag(n.text)) return void slow.push(i)
     const m = shapeSample(shape)
     ctx.font = m.font
     const width = ctx.measureText(text).width + m.chrome
@@ -1516,7 +1528,11 @@ function measureSizes(container: HTMLElement, nodes: BoardNode[], counts: Readon
     if (n.width) el.setCssStyles({ width: `${(looks.get(n.id)?.shape === 'diamond' ? n.width * DIAMOND_FIT.x : n.width) - extra[i]}px` })
     const text = el.createDiv()
     text.className = 'flowmap-node-text'
-    text.textContent = (n.text.includes('[[') ? displayText(n.text) : n.text) || '\u00a0'
+    // A tag pill has padding and a smaller font, so a node with tags is laid out with real pills (else it measures a line short).
+    if (hasTag(n.text)) for (const p of textParts(n.text)) {
+      if (typeof p === 'string') text.appendText(p)
+      else text.createSpan({ cls: 'tag' in p ? 'flowmap-tag' : undefined, text: p.label })
+    } else text.textContent = (n.text.includes('[[') ? displayText(n.text) : n.text) || '\u00a0'
     // ponytail: the link line is narrowed with the text; a link wider than text plus extras is slightly underestimated.
     if (n.link) {
       const link = el.createDiv()
