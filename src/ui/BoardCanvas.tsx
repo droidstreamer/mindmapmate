@@ -274,15 +274,16 @@ function Canvas({ store, keymap, snap, wheelZoom, dragPans, hideDone, onHideDone
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       shiftHeld.current = e.shiftKey
-      if (e.code === 'Space') setSpaceHeld(e.type === 'keydown')
+      if (e.code === 'Space' || e.key === ' ') setSpaceHeld(e.type === 'keydown')
     }
     const onBlur = () => { shiftHeld.current = false; setSpaceHeld(false) }
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('keyup', onKey)
+    // Capture phase, so Space going up is seen even if something between the key and the window stops the event.
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('keyup', onKey, true)
     window.addEventListener('blur', onBlur)
     return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('keyup', onKey)
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keyup', onKey, true)
       window.removeEventListener('blur', onBlur)
     }
   }, [])
@@ -997,10 +998,11 @@ function Canvas({ store, keymap, snap, wheelZoom, dragPans, hideDone, onHideDone
           // right drag pans.
           panOnScroll={!wheelZoom}
           zoomOnScroll
-          // Swapped (the swapPanSelect key): left drag pans, and Space or Shift + drag selects.
-          panOnDrag={swapped ? [0, 1, 2] : [1, 2]}
-          selectionOnDrag={!swapped}
-          selectionKeyCode={swapped ? ['Shift', 'Space'] : 'Shift'}
+          // Swapped (the swapPanSelect key): left drag pans, and Space or Shift + drag selects. Space comes from our own
+          // key tracking (`spaceHeld`), not React Flow's, which could be left thinking Space was still down.
+          panOnDrag={swapped && !spaceHeld ? [0, 1, 2] : [1, 2]}
+          selectionOnDrag={!swapped || spaceHeld}
+          selectionKeyCode="Shift"
           selectionMode={SelectionMode.Full}
           panActivationKeyCode={swapped ? null : 'Space'}
           zoomActivationKeyCode={swapped ? ['Control', 'Meta'] : ['Control', 'Meta', 'Space']}
