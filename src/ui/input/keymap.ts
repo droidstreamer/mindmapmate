@@ -24,6 +24,7 @@ export const DEFAULT_KEYS = {
   moveDown: ['Alt+ArrowDown'],
   toggleCollapse: ['Mod+Period'],
   tidy: ['Shift+L'],
+  swapPanSelect: ['Shift+M'], // left drag pans and Space+drag selects, or back
   // Not Mod+L (PRD) or Mod+Enter: Obsidian's hotkey handler takes any key bound to an editor command,
   // even when no editor is open, before the board sees it (found in M3).
   toggleDone: ['Mod+Shift+Enter'],
@@ -38,7 +39,7 @@ export const ACTION_NAMES: Record<Action, string> = {
   zoomToSelection: 'Focus selection', editNode: 'Edit node text', addChild: 'Add child', addSibling: 'Add sibling',
   selectUp: 'Select node above', selectDown: 'Select node below', selectLeft: 'Select node to the left', selectRight: 'Select node to the right',
   moveUp: 'Move node up among siblings', moveDown: 'Move node down among siblings', toggleCollapse: 'Collapse or expand',
-  tidy: 'Tidy selected branches', toggleDone: 'Toggle done',
+  tidy: 'Tidy selected branches', swapPanSelect: 'Swap drag: pan or select', toggleDone: 'Toggle done',
 }
 
 const MODIFIER_KEYS = new Set(['Control', 'Meta', 'Shift', 'Alt', 'AltGraph', 'CapsLock'])

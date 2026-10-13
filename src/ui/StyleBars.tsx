@@ -660,8 +660,8 @@ export type ViewTools = {
 }
 export type ExportKind = 'markdown' | 'svg' | 'png' | 'html'
 
-export function CanvasControls({ zoom, boardOpen, snap, canFocus, onBoardStyle, onZoomIn, onZoomOut, onZoomReset, onFit, onFocus, onSnap, tools }: {
-  zoom: number, boardOpen: boolean, snap: boolean, canFocus: boolean,
+export function CanvasControls({ zoom, boardOpen, snap, canFocus, onBoardStyle, onZoomIn, onZoomOut, onZoomReset, onFit, onFocus, onSnap, swapped, swapKey, onSwap, tools }: {
+  zoom: number, boardOpen: boolean, snap: boolean, canFocus: boolean, swapped: boolean, swapKey: string, onSwap: () => void,
   onBoardStyle: () => void, onZoomIn: () => void, onZoomOut: () => void, onZoomReset: () => void, onFit: () => void, onFocus: () => void, onSnap: () => void, tools: ViewTools,
 }) {
   const [levelsOpen, setLevelsOpen] = useState(false), [exportOpen, setExportOpen] = useState(false)
@@ -676,6 +676,7 @@ export function CanvasControls({ zoom, boardOpen, snap, canFocus, onBoardStyle, 
         <Btn label="Zoom out" onClick={onZoomOut}><Icon name="minus" /></Btn>
       </div>
       <div className="flowmap-group">
+        <Btn label={(swapped ? 'Drag pans, Space+drag selects' : 'Drag selects, Space+drag pans') + (swapKey ? ` (${swapKey}): click to swap` : ': click to swap')} active={swapped} onClick={onSwap}><Icon name={swapped ? 'hand' : 'mouse-pointer-2'} /></Btn>
         <Btn label="Zoom to fit (Shift+1)" onClick={onFit}><Icon name="expand" /></Btn>
         <Btn label="Focus selection (Shift+2)" disabled={!canFocus} onClick={onFocus}><Icon name="crosshair" /></Btn>
         <Btn label={snap ? 'Snap to grid: on' : 'Snap to grid: off'} active={snap} onClick={onSnap}><Icon name="magnet" /></Btn>
