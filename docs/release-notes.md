@@ -2,6 +2,9 @@
 
 Newest first. Only recent versions are listed here; earlier rounds are in the wiki's MindmapMate Milestones page.
 
+## 1.0.5
+- **Fix, checkbox click:** clicking a node's checkbox checks or unchecks it without also selecting the node. Clicking anywhere else on the node still selects it.
+
 ## 1.0.4
 - **About box:** the MindmapMate introduction at the top of the settings sits on its own card, as in FolderMate, and the options sit on a second card below it.
 

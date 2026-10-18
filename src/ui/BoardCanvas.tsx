@@ -1098,7 +1098,9 @@ const TaskNode = memo(function TaskNode({ id, data, selected }: NodeProps<TaskFl
         <input type="checkbox" className="task-list-item-checkbox flowmap-check nodrag" data-task={TASK_CHAR[node.status]}
           checked={node.status === 'done'} aria-label={node.status} tabIndex={-1} onChange={() => actions.toggleDone(id)}
           // Keep focus on the board, or its keys would stop working after a click.
-          onMouseDown={e => e.preventDefault()} onDoubleClick={e => e.stopPropagation()} />
+          onMouseDown={e => e.preventDefault()} onDoubleClick={e => e.stopPropagation()}
+          // R28: the click toggles the box only; React Flow's node wrapper would select the node.
+          onClick={e => e.stopPropagation()} />
       )}
       {editing ? (<>
         <textarea
