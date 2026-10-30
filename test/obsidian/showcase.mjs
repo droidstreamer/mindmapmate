@@ -13,26 +13,28 @@ const THEME = { fillOutline: true, fillOpacity: 40 }
 const nodes = spec => spec.map(([id, parent, text, extra], i) =>
   ({ id, parent, order: spec.slice(0, i).filter(s => s[1] === parent).length, text, x: parent ? 400 : 0, y: i * 40, ...extra }))
 const PLAN = 'Projects/Website Relaunch/Launch plan.board.md', GARDEN = 'Projects/Garden Plan/Garden ideas.board.md'
+// Due dates relative to today, so "due today" and "overdue" stay true whenever the frames are taken.
+const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 const BOARDS = {
   [PLAN]: { links: [], nodes: nodes([
     ['root', null, 'Website Relaunch', { shape: 'pill' }],
     ['design', 'root', 'Design'],
     ['d1', 'design', 'Moodboard', { status: 'done', link: 'Projects/Website Relaunch/Moodboard.md' }],
     ['d2', 'design', 'Wireframes', { status: 'done' }],
-    ['d3', 'design', 'Visual design', { status: 'doing', due: '2026-10-07' }],
-    ['d4', 'design', 'Accessibility review', { status: 'todo', due: '2026-10-14' }],
+    ['d3', 'design', 'Visual design #ux', { status: 'doing', due: day(2) }],
+    ['d4', 'design', 'Accessibility review #ux', { status: 'todo', due: day(9) }],
     ['content', 'root', 'Content'],
     ['c1', 'content', 'Rewrite the About page', { status: 'done' }],
-    ['c2', 'content', 'Three case studies', { status: 'doing', due: '2026-10-05' }],
+    ['c2', 'content', 'Three case studies', { status: 'doing', due: day(0) }],
     ['c3', 'content', 'Team photo shoot', { status: 'blocked' }],
     ['build', 'root', 'Build'],
     ['b1', 'build', 'Pick a site generator', { status: 'done' }],
-    ['b2', 'build', 'Page templates', { status: 'doing' }],
-    ['b3', 'build', 'Contact form', { status: 'todo', due: '2026-10-02' }],
-    ['b4', 'build', 'Pages load in under 1 s', { status: 'todo' }],
+    ['b2', 'build', 'Page templates #frontend', { status: 'doing' }],
+    ['b3', 'build', 'Contact form', { status: 'todo', due: day(-3) }],
+    ['b4', 'build', 'Pages load in [under 1 s](https://example.com/speed)', { status: 'todo' }],
     ['launch', 'root', 'Launch'],
-    ['l1', 'launch', 'Redirect the old URLs', { status: 'todo' }],
-    ['l2', 'launch', 'Newsletter announcement', { status: 'todo', due: '2026-10-20' }],
+    ['l1', 'launch', 'Redirect the old URLs #seo', { status: 'todo' }],
+    ['l2', 'launch', 'Newsletter announcement', { status: 'todo', due: day(15) }],
     ['l3', 'launch', 'See the [[Sitemap]]'],
   ]) },
   [GARDEN]: { links: [], nodes: nodes([
@@ -125,12 +127,14 @@ if (want(3)) {
   const k = 540 / clip.height, cardW = Math.round(clip.width * k), cardL = Math.round(600 - cardW / 2), cardR = cardL + cardW, top = 220
   const y = async id => { const r = await nodeRect(id); return Math.round(top + (r.y + r.height / 2 - clip.y) * k - 16) }
   await compose('3-tasks', 'pink', 'Tasks that add up.',
-    'Tick a box and its parent shows the progress. Due dates turn orange today and red when late.',
+    'Parents count what is done. Due dates turn orange today and red when late. #tags and web links just work.',
     card(shot, `left:${cardL}px;top:${top}px;height:540px`) +
     pill('Progress rolls up', '#DB2777', `right:${1200 - cardL + 18}px;top:${await y('content')}px`) +
+    pill('Tags open search', '#7c3aed', `right:${1200 - cardL + 18}px;top:${await y('b2')}px`) +
     pill('Due today', '#b45309', `left:${cardR + 18}px;top:${await y('c2')}px`) +
     pill('Blocked', '#475569', `left:${cardR + 18}px;top:${await y('c3')}px`) +
-    pill('Overdue', '#b91c1c', `left:${cardR + 18}px;top:${await y('b3')}px`))
+    pill('Overdue', '#b91c1c', `left:${cardR + 18}px;top:${await y('b3')}px`) +
+    pill('Web links', '#2563eb', `left:${cardR + 18}px;top:${await y('b4')}px`))
 }
 
 // 2. Tab, type, Enter: a child added from the keyboard, the node toolbar and the shortcut hints.
@@ -193,13 +197,13 @@ if (want(5)) {
   const sv = async src => { const r = await scall('Runtime.evaluate', { expression: `(() => { ${src} })()`, returnByValue: true }); return r.result.value }
   const box = await sv(`const c = document.querySelector('.vertical-tab-content'), r = c.getBoundingClientRect(), items = [...c.querySelectorAll('.setting-item')].filter(x => x.offsetParent)
     const at = t => items.find(h => h.querySelector('.setting-item-name')?.textContent === t).getBoundingClientRect()
-    return { x: r.x + 24, w: r.width - 48, top: c.querySelector('.flowmap-about-row').getBoundingClientRect().top, split: at('Export headings').bottom, rest: at('Grid dots').top, end: at('Hotkeys').bottom }`)
+    return { x: r.x + 24, w: r.width - 48, top: c.querySelector('.flowmap-about-row').getBoundingClientRect().top, split: at('Pan key').bottom, rest: at('Copy').top, end: at('Hotkeys').bottom }`)
   const sgrab = async (name, y0, y1) => { const r = await scall('Page.captureScreenshot', { format: 'png', clip: { x: box.x - 12, y: y0, width: box.w + 24, height: y1 - y0, scale: 1 } })
     writeFileSync(`${OUT}/raw/${name}.png`, Buffer.from(r.data, 'base64')); return `data:image/png;base64,${r.data}` }
-  const head = await sgrab('settings-top', box.top - 6, box.split + 10), rest = await sgrab('settings-rest', box.rest + 2, box.end + 10)
+  const head = await sgrab('settings-top', box.top - 6, box.split - 1), rest = await sgrab('settings-rest', box.rest + 2, box.end + 10)
   sws.close(); await ev(`app.setting.close(); return 1`)
   await compose('5-settings', 'violet', 'Made to fit how you work.',
-    'Wheel to zoom or pan, copy a node or its branch, grid dots, due colors. Your notes stay plain Markdown.',
+    'Wheel to zoom or pan, your own pan key, copy a node or its branch, grid dots, due colors.',
     card(head, 'left:56px;top:205px;width:540px') + card(rest, 'right:56px;top:205px;width:520px'))
 }
 

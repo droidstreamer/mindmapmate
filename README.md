@@ -21,11 +21,11 @@ Canvas gives you space to think but knows nothing about progress, and a task lis
 
 ![Tab adds a child, Enter finishes, click a node for its toolbar](docs/images/2-add.png)
 
-![Progress rolls up to each parent; due dates turn orange today and red when late](docs/images/3-tasks.png)
+![Progress rolls up to each parent; due dates turn orange today and red when late; tags show as pills and web links open in your browser](docs/images/3-tasks.png)
 
 ![One board laid out on both sides, downward, and in a light theme](docs/images/4-looks.png)
 
-![MindmapMate settings: mouse wheel, copy, export headings, grid dots, due date colors](docs/images/5-settings.png)
+![MindmapMate settings: mouse wheel, pan key, copy, export headings, grid dots, due date colors](docs/images/5-settings.png)
 
 ## How to use
 
