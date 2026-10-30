@@ -2,6 +2,10 @@
 
 Newest first. Only recent versions are listed here; earlier rounds are in the wiki's MindmapMate Milestones page.
 
+## 1.1.1
+- **Fix, Pan key button:** closing Settings while the button says "Press a key…" now cancels the wait. Before, the next key you pressed anywhere could quietly become the pan key.
+- **Fix, double click:** clicking the Pan key button again while it waits no longer shows the "use Space, a letter…" message twice.
+
 ## 1.1.0
 - **Web links:** type or paste `[text](https://example.com)` in a node and it shows as a link that opens in your browser. `mailto:` addresses work too. Only web and mail addresses are links; `javascript:`, `file:` and `obsidian:` addresses and plain paths stay as typed (use `[[Note]]` for notes). An address with parentheses or spaces in it is not read as a link.
 - **Tags:** a `#tag` in a node is drawn as a small pill in the node's outline color, and a click opens Obsidian's search for it (the core Search plugin must be on, or you get a notice). As in Obsidian, `#123`, `a#b` and `[[Note#Heading]]` are not tags. Any `#word` already on your boards now shows as a pill; nothing in the saved files changes. Nodes that end in a tag are sized with the pill, so they no longer overlap their neighbors when tidied.

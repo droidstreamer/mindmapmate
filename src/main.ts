@@ -333,7 +333,9 @@ class MindmapMateSettings extends PluginSettingTab {
   constructor(app: App, private plugin: MindmapMatePlugin) { super(app, plugin) }
   private picker: Root | null = null
   private closePicker: (() => void) | null = null
-  hide() { this.closePicker?.(); super.hide() }
+  /** R30: set while the Pan key button waits for a key; stops the wait. */
+  private stopPanKey: (() => void) | null = null
+  hide() { this.closePicker?.(); this.stopPanKey?.(); super.hide() }
   // Round 14: the boards' own color picker, not Obsidian's, whose system color dialog closed Obsidian on Linux.
   // Round 17: it opens as a popover from the swatch and closes on Escape or a click outside, so the sliders never sit in the settings.
   // R24: one row can hold several swatches (the due colors); one picker is open at a time.
@@ -430,9 +432,10 @@ class MindmapMateSettings extends PluginSettingTab {
     let button: ButtonComponent
     row.addButton(b => {
       button = b.setButtonText(keyLabel(p.panKey)).onClick(() => {
+        if (this.stopPanKey) return // R30: already waiting; a second listener would handle the key twice
         const win = b.buttonEl.win
         b.setButtonText('Press a key…')
-        const stop = () => { win.removeEventListener('keydown', onKey, true); b.setButtonText(keyLabel(p.panKey)) }
+        const stop = () => { win.removeEventListener('keydown', onKey, true); this.stopPanKey = null; b.setButtonText(keyLabel(p.panKey)) }
         const onKey = (e: KeyboardEvent) => {
           e.preventDefault(); e.stopPropagation()
           if (e.key === 'Escape') return stop()
@@ -445,6 +448,7 @@ class MindmapMateSettings extends PluginSettingTab {
           stop()
         }
         win.addEventListener('keydown', onKey, true)
+        this.stopPanKey = stop
       })
     })
     row.addExtraButton(x => x.setIcon('rotate-ccw').setTooltip('Back to Space').onClick(async () => {

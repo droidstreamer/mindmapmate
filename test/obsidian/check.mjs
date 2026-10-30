@@ -1598,6 +1598,15 @@ check('two tabs: an edit in one reaches the other', await ev(`
   check('R29: Esc cancels and the key stays W', (await ev(`return ${plugin}.panKey`)) === 'W' && (await label()) === 'W')
   await ev(`${row}.querySelector('.extra-setting-button').click(); await new Promise(r => setTimeout(r, 300)); return 1`)
   check('R29: the reset arrow puts back Space', (await ev(`return ${plugin}.panKey`)) === 'Space' && (await label()) === 'Space')
+  // R30: a second click while waiting adds no second listener (one bad key, one notice)
+  await ev(`document.querySelectorAll('.notice').forEach(n => n.remove()); ${row}.querySelector('button').click(); ${row}.querySelector('button').click(); return 1`)
+  await press('Q', 'KeyQ', { shiftKey: true })
+  check('R30: clicking the Pan key button twice, then a bad key, shows one notice', (await ev(`return [...document.querySelectorAll('.notice')].filter(e => e.textContent.includes('no Shift')).length`)) === 1 && (await label()) === 'Space')
+  // R30: closing Settings while the button waits stops the wait; a later key press doesn't become the pan key
+  await ev(`${row}.querySelector('button').click(); ${tab}.hide(); return 1`)
+  await press('k', 'KeyK')
+  check('R30: closing Settings while the button waits, then pressing K, leaves the pan key on Space', (await ev(`return ${plugin}.panKey`)) === 'Space')
+  await ev(`${tab}.display(); await new Promise(r => setTimeout(r, 300)); return 1`)
   // Old settings (no panKey saved at all) load as Space
   check('R29: settings saved before 1.1.0 (no panKey) mean Space', await ev(`delete ${plugin}.settings.panKey; return ${plugin}.panKey`) === 'Space')
   await ev(`${tab}.hide(); ${tab}.containerEl.remove(); return 1`)
