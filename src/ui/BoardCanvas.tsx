@@ -13,7 +13,7 @@ import { ARROW_PATHS, arrowScale, arrowTransform, dashArray, DIAMOND_FIT, HEAD_L
 import { copyClip, parseOutline, readClip, toMarkdown } from '../core/io/outline.ts'
 import { boardDirection, childSpot, rootSpot, type Size } from '../core/layout/tidy.ts'
 import { dayOf, dueState, filterMatches, isDue, shortDay, type DueFilter } from '../core/due.ts'
-import { displayText, textParts } from '../core/links.ts'
+import { displayText, hasMarkup, hasTag, textParts } from '../core/links.ts'
 import { facing, neighbor, trunks, type Side } from '../core/navigate.ts'
 import type { Board, BoardNode, Status } from '../core/schema.ts'
 import type { BoardStore, Command } from '../core/store.ts'
@@ -25,7 +25,7 @@ import { boardSvg } from './exportImage.ts'
 import type { HtmlColors } from './exportHtml.ts'
 import { ancestors, childrenMap, depths, shownLevel, subtreeCounts, topmost, withDescendants, type Counts } from '../core/tree.ts'
 import { nodesNear, visibleBoard, type Rect } from '../core/visibility.ts'
-import { actionFor, keyLabel, type Action, type Keymap } from './input/keymap.ts'
+import { actionFor, flowKeyCode, isPanKey, keyLabel, type Action, type Keymap } from './input/keymap.ts'
 import { approxHeight, approxWidth, drawOverview, HEIGHT, OVERVIEW_ABOVE, OVERVIEW_BELOW, OVERVIEW_ZOOM, visibleCount } from './overview.ts'
 
 const GRID = 20
@@ -79,6 +79,8 @@ export interface BoardCanvasProps {
   snap: boolean
   /** D29: the mouse wheel zooms (true, like Canvas) or pans (for trackpads). A plugin setting. */
   wheelZoom: boolean
+  /** R29: the key held to pan, with a drag (default Space). A plugin setting. */
+  panKey: string
   /** F8: done and dropped branches are not drawn. A view setting, never saved in the file. */
   hideDone: boolean
   onHideDoneChange: (hide: boolean) => void
@@ -109,6 +111,8 @@ export interface BoardCanvasProps {
 export interface BoardLinks {
   resolved: (linktext: string) => boolean
   open: (linktext: string, newTab: boolean) => void
+  /** R29: search the vault for a #tag (without the "#"). */
+  searchTag: (tag: string) => void
   /** Page preview on hover. */
   hover: (event: MouseEvent, targetEl: HTMLElement, linktext: string) => void
   /** M6b: notes matching what follows `[[` in a node, best first (up to 8), as link text and path. */
@@ -146,7 +150,7 @@ function syncNodes(nodes: BoardNode[], prev: TaskFlowNode[], editing: string | n
   })
 }
 
-function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, minimap, onMinimapChange, onSnapChange, links, copyBranch, recentFonts, onFontUsed, onNoteAction, onFirstPaint, onExport, hints, gridDots, gridColor, api }: BoardCanvasProps) {
+function Canvas({ store, keymap, snap, wheelZoom, panKey, hideDone, onHideDoneChange, minimap, onMinimapChange, onSnapChange, links, copyBranch, recentFonts, onFontUsed, onNoteAction, onFirstPaint, onExport, hints, gridDots, gridColor, api }: BoardCanvasProps) {
   const rf = useReactFlow<TaskFlowNode>()
   const rfStore = useStoreApi()
   const board = useSyncExternalStore(store.subscribe, store.getBoard)
@@ -206,13 +210,13 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
   const marqueeBase = useRef<{ nodes: Set<string>, edges: Set<string> } | null>(null)
   // Last pointer position over the board, where pasted nodes go.
   const pointer = useRef<{ x: number, y: number } | null>(null)
-  const [spaceHeld, setSpaceHeld] = useState(false)
+  const [panHeld, setPanHeld] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
   const shiftHeld = useRef(false)
   const snapOn = useRef(false)
-  snapOn.current = snap && !spaceHeld
+  snapOn.current = snap && !panHeld
   // F2: `follow` maps each descendant of a dragged branch to its top node, which it moves with.
   const drag = useRef<{ start: Map<string, Point>, tops: Set<string>, follow: Map<string, string>, duplicate: boolean, alone: boolean } | null>(null)
   // Boards open fitted, so start in overview when the whole board would be too many nodes.
@@ -265,13 +269,13 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
   const selBoxRef = useRef(selBox)
   selBoxRef.current = selBox
 
-  // Shift locks a drag to one axis and Space turns snapping off, as in Canvas.
+  // Shift locks a drag to one axis and the pan key (Space) turns snapping off, as in Canvas.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       shiftHeld.current = e.shiftKey
-      if (e.code === 'Space') setSpaceHeld(e.type === 'keydown')
+      if (isPanKey(e, panKey)) setPanHeld(e.type === 'keydown')
     }
-    const onBlur = () => { shiftHeld.current = false; setSpaceHeld(false) }
+    const onBlur = () => { shiftHeld.current = false; setPanHeld(false) }
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKey)
     window.addEventListener('blur', onBlur)
@@ -280,7 +284,7 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
       window.removeEventListener('keyup', onKey)
       window.removeEventListener('blur', onBlur)
     }
-  }, [])
+  }, [panKey])
 
   const onNodesChange = useCallback((changes: NodeChange<TaskFlowNode>[]) => {
     // Round 11: with snap on, a resize puts the moving edge on the grid. Only a resize from the left moves the node.
@@ -993,13 +997,13 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
           panOnDrag={[1, 2]}
           selectionOnDrag
           selectionMode={SelectionMode.Full}
-          panActivationKeyCode="Space"
-          zoomActivationKeyCode={['Control', 'Meta', 'Space']}
+          panActivationKeyCode={flowKeyCode(panKey)}
+          zoomActivationKeyCode={['Control', 'Meta', flowKeyCode(panKey)]}
           multiSelectionKeyCode="Shift"
           zoomOnDoubleClick={false}
           deleteKeyCode={null}
           disableKeyboardA11y // its arrow-key moves would bypass commands
-          snapToGrid={snap && !spaceHeld}
+          snapToGrid={snap && !panHeld}
           snapGrid={[GRID, GRID]}
           minZoom={0.05}
           proOptions={{ hideAttribution: true }}
@@ -1008,7 +1012,7 @@ function Canvas({ store, keymap, snap, wheelZoom, hideDone, onHideDoneChange, mi
           {gridDots && <Background gap={GRID} offset={0.5 - GRID / 2} color={/^#[0-9a-f]{6}$/i.test(gridColor) ? gridColor : undefined} />}
           <canvas ref={overviewCanvas} className="flowmap-overview" hidden={!overview} />
           {!overview && selBox && <SelectionBox box={selBox} />}
-          {hints && <ShortcutHints keymap={keymap} editing={!!editing} nodes={nodes.filter(n => n.selected).length} lines={selectedEdges.size} wheelZoom={wheelZoom} />}
+          {hints && <ShortcutHints keymap={keymap} editing={!!editing} nodes={nodes.filter(n => n.selected).length} lines={selectedEdges.size} wheelZoom={wheelZoom} panKey={panKey} />}
           <Breadcrumb board={board} selected={nodes.filter(n => n.selected)} onPick={selectOnly} />
           <StyleOverlay board={board} styles={styles} nodes={nodes} selectedEdges={selectedEdges} flyout={flyout} setFlyout={setFlyout}
             boardBar={boardBar} setBoardBar={setBoardBar} hidden={!!editing || dragging || overview} labelEdit={labelEdit} setLabelEdit={setLabelEdit}
@@ -1138,6 +1142,8 @@ const TaskNode = memo(function TaskNode({ id, data, selected }: NodeProps<TaskFl
         )}
       </>) : (
         <div className="flowmap-node-text">{node.text ? textParts(node.text).map((p, i) => typeof p === 'string' ? p
+          : 'href' in p ? <ExternalLink key={i} href={p.href} label={p.label} />
+          : 'tag' in p ? <TagPill key={i} tag={p.tag} label={p.label} links={actions.links} />
           : <NoteLink key={i} linktext={p.linktext} label={p.label} links={actions.links} />) : ' '}</div>
       )}
       {data.tasks > 0 && <span className="flowmap-progress" aria-label={`${data.done} of ${data.tasks} tasks done`}>{progress(data.done, data.tasks)}</span>}
@@ -1163,6 +1169,24 @@ const TaskNode = memo(function TaskNode({ id, data, selected }: NodeProps<TaskFl
     </div>
   )
 })
+
+/** R29: a [text](url) link in node text. Click opens the web or mail address outside Obsidian. */
+function ExternalLink({ href, label }: { href: string, label: string }) {
+  return (
+    <a className="external-link nodrag" href={href} aria-label={href}
+      onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(href) }}
+      onDoubleClick={e => e.stopPropagation()}>{label}</a>
+  )
+}
+
+/** R29: a #tag in node text, drawn as a pill. Click searches the vault for it. */
+function TagPill({ tag, label, links }: { tag: string, label: string, links: BoardLinks }) {
+  return (
+    <span className="flowmap-tag nodrag" aria-label={`Search ${label}`}
+      onClick={e => { e.stopPropagation(); links.searchTag(tag) }}
+      onDoubleClick={e => e.stopPropagation()}>{label}</span>
+  )
+}
 
 /** F10: a note link on a node. Click opens it (Ctrl or Cmd: in a new tab); hovering shows Obsidian's page preview. A link
  *  to a missing note is drawn faded, and clicking it creates the note, as in Obsidian. */
@@ -1243,7 +1267,7 @@ function SelectionBox({ box }: { box: Box }) {
  * Round 11 (Blender-style): the keys and mouse moves that fit what is selected now, along the bottom while the board
  * has focus (styles.css shows it on :focus-within). Board keys show the user's own bindings.
  */
-function ShortcutHints({ keymap, editing, nodes, lines, wheelZoom }: { keymap: Keymap, editing: boolean, nodes: number, lines: number, wheelZoom: boolean }) {
+function ShortcutHints({ keymap, editing, nodes, lines, wheelZoom, panKey }: { keymap: Keymap, editing: boolean, nodes: number, lines: number, wheelZoom: boolean, panKey: string }) {
   const k = (a: Action) => keymap[a][0] ? keyLabel(keymap[a][0]) : ''
   const mod = keyLabel('Mod')
   // One line: the few moves that aren't obvious for this selection (styles.css never wraps it).
@@ -1256,7 +1280,7 @@ function ShortcutHints({ keymap, editing, nodes, lines, wheelZoom }: { keymap: K
   ] : lines ? [
     ['Double-click', 'label'], [k('addChild'), 'insert node'], ['Drag start end', 'reparent'], [k('delete'), 'delete'],
   ] : [
-    ['Shift+drag', 'add to selection'], ['Double-click', 'new node'], ['Space+drag', 'pan'], ['Wheel', wheelZoom ? 'zoom' : 'pan'],
+    ['Shift+drag', 'add to selection'], ['Double-click', 'new node'], [`${keyLabel(panKey)}+drag`, 'pan'], ['Wheel', wheelZoom ? 'zoom' : 'pan'],
   ]
   return (
     <Panel position="bottom-left" className="flowmap-hints">
@@ -1498,8 +1522,8 @@ function measureSizes(container: HTMLElement, nodes: BoardNode[], counts: Readon
   const sizes = new Map<string, Size>()
   const slow: number[] = []
   nodes.forEach((n, i) => {
-    const shape = looks.get(n.id)?.shape ?? 'round', text = n.text.includes('[[') ? displayText(n.text) : n.text
-    if (shape === 'circle' || shape === 'diamond' || shape === 'label' || n.width || n.link || !text || text.includes('\n')) return void slow.push(i)
+    const shape = looks.get(n.id)?.shape ?? 'round', text = hasMarkup(n.text) ? displayText(n.text) : n.text
+    if (shape === 'circle' || shape === 'diamond' || shape === 'label' || n.width || n.link || !text || text.includes('\n') || hasTag(n.text)) return void slow.push(i)
     const m = shapeSample(shape)
     ctx.font = m.font
     const width = ctx.measureText(text).width + m.chrome
@@ -1518,7 +1542,11 @@ function measureSizes(container: HTMLElement, nodes: BoardNode[], counts: Readon
     if (n.width) el.setCssStyles({ width: `${(looks.get(n.id)?.shape === 'diamond' ? n.width * DIAMOND_FIT.x : n.width) - extra[i]}px` })
     const text = el.createDiv()
     text.className = 'flowmap-node-text'
-    text.textContent = (n.text.includes('[[') ? displayText(n.text) : n.text) || '\u00a0'
+    // A tag pill has padding and a smaller font, so a node with tags is laid out with real pills (else it measures a line short).
+    if (hasTag(n.text)) for (const p of textParts(n.text)) {
+      if (typeof p === 'string') text.appendText(p)
+      else text.createSpan({ cls: 'tag' in p ? 'flowmap-tag' : undefined, text: p.label })
+    } else text.textContent = (hasMarkup(n.text) ? displayText(n.text) : n.text) || '\u00a0'
     // ponytail: the link line is narrowed with the text; a link wider than text plus extras is slightly underestimated.
     if (n.link) {
       const link = el.createDiv()

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeChild, makeLink, retargetLinks } from '../../src/core/commands.ts'
 import { boardData, boardIndex, nodeIdAt, parseBoardFile, replaceBoardJson, serializeBoardFile } from '../../src/core/io/boardFile.ts'
 import { copyClip, parseOutline } from '../../src/core/io/outline.ts'
-import { displayText, mapWikilinks, movedTarget, noteName, textParts } from '../../src/core/links.ts'
+import { displayText, hasMarkup, hasTag, mapWikilinks, movedTarget, noteName, textParts } from '../../src/core/links.ts'
 import { validateBoard, type Board, type BoardNode } from '../../src/core/schema.ts'
 import { sampleBoard } from '../../src/core/io/sample.ts'
 import { hexToHsl, hslToHex } from '../../src/core/style.ts'
@@ -19,6 +19,40 @@ describe('wikilinks in node text (F10)', () => {
     ])
     expect(textParts('no links [[ here')).toEqual(['no links [[ here'])
     expect(displayText('[[Games/Boss]] fight')).toBe('Games/Boss fight')
+  })
+
+  it('R29: reads [text](url) for web and mail addresses only; everything else stays text', () => {
+    expect(textParts('see [docs](https://example.com/a?b=1#top) or [me](mailto:a@b.co) and [[Boss]]')).toEqual([
+      'see ', { href: 'https://example.com/a?b=1#top', label: 'docs' }, ' or ', { href: 'mailto:a@b.co', label: 'me' },
+      ' and ', { linktext: 'Boss', label: 'Boss' },
+    ])
+    expect(textParts('[a b c](HTTP://X.IO) [d](http://y.io)')).toEqual([{ href: 'HTTP://X.IO', label: 'a b c' }, ' ', { href: 'http://y.io', label: 'd' }])
+    for (const text of ['[x](javascript:alert(1))', '[x](file:///etc/passwd)', '[x](obsidian://open?vault=a)', '[Plan](Notes/My%20Plan.md)',
+      '[x](https://a.io "title")', '[x](https://en.wikipedia.org/wiki/A_(b))x', '[](https://a.io)', '[x]( https://a.io)']) {
+      expect(textParts(text).filter(p => typeof p !== 'string' && 'href' in p), text).toHaveLength(0)
+    }
+    expect(displayText('read [the docs](https://example.com) now')).toBe('read the docs now')
+    expect(hasMarkup('read [the docs](https://example.com) now')).toBe(true)
+    expect(hasMarkup('plain text, [x] and (y) and a#b')).toBe(false)
+  })
+
+  it('R29: finds #tags as Obsidian does, and leaves anchors, numbers and link subpaths alone', () => {
+    expect(textParts('#todo fix this #area/work-1 now')).toEqual([
+      { tag: 'todo', label: '#todo' }, ' fix this ', { tag: 'area/work-1', label: '#area/work-1' }, ' now',
+    ])
+    expect(textParts('issue #123, a#b, https://x.io/#top and [[Note#Head]]')).toEqual([
+      'issue #123, a#b, https://x.io/#top and ', { linktext: 'Note#Head', label: 'Note > Head' },
+    ])
+    expect(textParts('#été et #日本語')).toEqual([{ tag: 'été', label: '#été' }, ' et ', { tag: '日本語', label: '#日本語' }])
+    expect(displayText('ship #v2 today')).toBe('ship #v2 today')
+    expect(hasTag('ship #v2')).toBe(true)
+    expect(hasTag('issue #123 or [[A#B]]')).toBe(false)
+  })
+
+  it('R29: a # inside a link address or a link label is not a tag', () => {
+    expect(textParts('[docs](https://x.io/#top) #v2')).toEqual([{ href: 'https://x.io/#top', label: 'docs' }, ' ', { tag: 'v2', label: '#v2' }])
+    expect(textParts('[#v2 notes](https://x.io)')).toEqual([{ href: 'https://x.io', label: '#v2 notes' }])
+    expect(hasTag('[docs](https://x.io/#top)')).toBe(false)
   })
 
   it('maps link paths and keeps subpath and alias', () => {

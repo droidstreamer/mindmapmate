@@ -1,4 +1,4 @@
-import { getLinkpath, prepareFuzzySearch, TextFileView, type HoverParent, type HoverPopover, type WorkspaceLeaf } from 'obsidian'
+import { getLinkpath, Notice, prepareFuzzySearch, TextFileView, type HoverParent, type HoverPopover, type WorkspaceLeaf } from 'obsidian'
 import { createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { setCollapsed } from '../core/commands.ts'
@@ -15,6 +15,7 @@ export interface BoardHost {
   keymap: Keymap
   snap: boolean
   wheelZoom: boolean
+  panKey: string
   setSnap(snap: boolean): void
   copyBranch: boolean
   minimap: boolean
@@ -153,12 +154,22 @@ export class BoardView extends TextFileView implements HoverParent {
     else this.pending.push(run)
   }
 
+  /** R29: Obsidian's search pane for a tag, through the core Search plugin (not a public API, so every step is checked). */
+  private searchTag(tag: string) {
+    type Search = { instance?: { openGlobalSearch?(query: string): void } }
+    const internal = (this.app as unknown as { internalPlugins?: { getPluginById?(id: string): Search | undefined } }).internalPlugins
+    const search = internal?.getPluginById?.('global-search')?.instance
+    if (search?.openGlobalSearch) search.openGlobalSearch(`tag:#${tag}`)
+    else new Notice('Turn on the core Search plugin to search tags.')
+  }
+
   // F10: links in node text and link fields, resolved and opened like Obsidian's own.
   private links(): BoardLinks {
     const source = this.file?.path ?? ''
     return {
       resolved: linktext => !!this.app.metadataCache.getFirstLinkpathDest(getLinkpath(linktext), source),
       open: (linktext, newTab) => void this.app.workspace.openLinkText(linktext, source, newTab),
+      searchTag: tag => this.searchTag(tag),
       hover: (event, targetEl, linktext) => this.app.workspace.trigger('hover-link', { event, source: VIEW_TYPE, hoverParent: this, targetEl, linktext, sourcePath: source }),
       // M6b: `[[` in a node. Fuzzy matches on the path, best first; with nothing typed yet, the latest edited notes.
       suggest: query => {
@@ -192,6 +203,7 @@ export class BoardView extends TextFileView implements HoverParent {
       keymap: this.host.keymap,
       snap: this.host.snap,
       wheelZoom: this.host.wheelZoom,
+      panKey: this.host.panKey,
       hideDone: this.hideDone,
       onHideDoneChange: hide => this.setHideDone(hide),
       minimap: this.host.minimap,

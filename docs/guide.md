@@ -56,6 +56,11 @@ an outline and a task list at once.
 ### Notes
 - Type `[[` in a node to link a note: click opens it, hovering previews it. The Link menu can also attach a note, or
   **promote** a node into a new note.
+- Type `[text](https://example.com)` (or a `mailto:` address) for a web link: the node shows the text, and a click opens the
+  address in your browser. Only `http`, `https` and `mailto` addresses are links; anything else stays as typed. An address with
+  parentheses or spaces in it is not read as a link.
+- A `#tag` in a node is drawn as a pill in the node's outline color, and a click opens Obsidian's search for it (the core
+  Search plugin must be on). As in Obsidian, `#123`, `a#b`, `page/#top` and `[[Note#Heading]]` are not tags.
 - Renaming or moving a note or folder updates every board. Notes' backlinks list the boards that point to them.
 - Search finds board text through each file's generated **Board index**. Due dates are searchable as `📅 2026-10`
   (a month) and appear in the Tags pane as `#due/2026-10-03`.
@@ -106,8 +111,8 @@ Ctrl means Cmd on macOS.
 | Shift+drag on empty space | Add a rectangle to the selection |
 | Shift+click | Add to or remove from the selection |
 | Wheel | Zoom (a setting switches it to pan, for trackpads) |
-| Space+drag, middle or right drag | Pan |
-| Hold Space while dragging | Snap to grid off |
+| Pan key (Space) + drag, middle or right drag | Pan. The pan key is a setting |
+| Hold the pan key while dragging | Snap to grid off |
 
 Every other action is a command (Ctrl+P, type "MindmapMate"), and you can give it a key in Settings → Hotkeys: new board,
 import outline, create sample board, open as Markdown, tidy, expand all, collapse to a level, layout direction, sort
@@ -115,7 +120,7 @@ children, set status, hide done, add label, show overdue, focus on a branch, min
 promote to a note.
 
 ## Settings
-Mouse wheel (zoom or pan), copy (nodes or whole branches), export headings (levels), grid dots (off by default; color from a swatch),
+Mouse wheel (zoom or pan), pan key (Space, or a letter, digit or F key), copy (nodes or whole branches), export headings (levels), grid dots (off by default; color from a swatch),
 due date colors, shortcut hints and the sample board. Snap to grid and the minimap are the magnet and map buttons on each board.
 
 ## The file

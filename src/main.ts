@@ -1,4 +1,4 @@
-import { FuzzySuggestModal, MarkdownView, normalizePath, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, TFolder, type App, type SettingDefinitionItem } from 'obsidian'
+import { ButtonComponent, FuzzySuggestModal, MarkdownView, normalizePath, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, TFolder, type App, type SettingDefinitionItem } from 'obsidian'
 import { collapseToLevel, expandAll, setCollapsed, setDirection, setLink, setStatus, sortChildren } from './core/commands.ts'
 import { noteName } from './core/links.ts'
 import { DIRECTIONS, type Direction } from './core/layout/tidy.ts'
@@ -11,7 +11,7 @@ import { SCHEMA_VERSION, type Status } from './core/schema.ts'
 import { BoardView, type BoardHost } from './obsidian/BoardView.ts'
 import { registerLinkUpdates } from './obsidian/links.ts'
 import { isBoardFile, openAsBoard, openAsMarkdown, patchSetViewState, VIEW_TYPE } from './obsidian/openAsBoard.ts'
-import { DEFAULT_KEYS, setMacKeys, type Action, type Keymap } from './ui/input/keymap.ts'
+import { ACTION_NAMES, DEFAULT_KEYS, DEFAULT_PAN_KEY, keyLabel, normalizePanKey, panKeyConflict, panKeyFor, setMacKeys, type Action, type Keymap } from './ui/input/keymap.ts'
 import type { ExportKind, NoteAction } from './ui/StyleBars.tsx'
 import { svgToPng } from './ui/exportImage.ts'
 import { htmlPage } from './ui/exportHtml.ts'
@@ -44,6 +44,8 @@ interface Settings {
   dueLater: string
   /** Round 15: grid dots were turned off once for everyone, when they became off by default. */
   gridDotsOff15?: boolean
+  /** R29: the key held to pan, with a drag. Space until the user picks another. */
+  panKey?: string
   /** D25: per-action key overrides, e.g. { "editNode": ["F3"] }, set in the settings screen. */
   keys: Partial<Keymap>
 }
@@ -53,6 +55,7 @@ export default class MindmapMatePlugin extends Plugin implements BoardHost {
   keymap: Keymap = DEFAULT_KEYS
 
   get snap() { return this.settings.snap }
+  get panKey() { return normalizePanKey(this.settings.panKey) }
   get wheelZoom() { return this.settings.wheel !== 'pan' }
   get copyBranch() { return this.settings.copy === 'branch' }
   get minimap() { return this.settings.minimap }
@@ -389,6 +392,9 @@ class MindmapMateSettings extends PluginSettingTab {
       { type: 'group', items: [
       { name: 'Mouse wheel', desc: 'Zoom, like Canvas. Choose pan if you use a trackpad: then the wheel pans, and Ctrl (Cmd) + wheel zooms.',
         control: { type: 'dropdown', key: 'wheel', options: { zoom: 'Zoom', pan: 'Pan' } } },
+      // R29: the key held to pan. A held key can't be set in Obsidian's Hotkeys editor, so it has its own row.
+      { name: 'Pan key', desc: 'Hold this key and drag to pan the board. Space by default. Use a letter, a digit, an F key or Space, not a key a board action already uses.',
+        render: row => this.panKeyRow(row) },
       { name: 'Copy', desc: 'What Ctrl (Cmd) + C takes from a board. Pasted nodes go beside the selected node. Cut always takes the whole branch.',
         control: { type: 'dropdown', key: 'copy', options: { node: 'The node only', branch: 'The whole branch' } } },
       { name: 'Export headings', desc: '"Export to Markdown" turns this many top levels into headings (#, ##, …). Deeper levels, and every task, are nested bullets, with no depth limit.',
@@ -416,6 +422,35 @@ class MindmapMateSettings extends PluginSettingTab {
           }))
         } }] },
     ]
+  }
+
+  /** R29: a button that shows the pan key; click it, then press the new key (Esc cancels). The arrow puts back Space. */
+  private panKeyRow(row: Setting) {
+    const p = this.plugin
+    let button: ButtonComponent
+    row.addButton(b => {
+      button = b.setButtonText(keyLabel(p.panKey)).onClick(() => {
+        const win = b.buttonEl.win
+        b.setButtonText('Press a key…')
+        const stop = () => { win.removeEventListener('keydown', onKey, true); b.setButtonText(keyLabel(p.panKey)) }
+        const onKey = (e: KeyboardEvent) => {
+          e.preventDefault(); e.stopPropagation()
+          if (e.key === 'Escape') return stop()
+          if (['Shift', 'Control', 'Meta', 'Alt'].includes(e.key)) return // a modifier alone: wait for the key
+          const key = panKeyFor(e)
+          const used = key && panKeyConflict(p.keymap, key)
+          if (!key) new Notice('Use Space, a letter, a digit or an F key, with no Shift, Ctrl, Cmd or Alt.')
+          else if (used) new Notice(`${keyLabel(key)} is already the key for "${ACTION_NAMES[used]}".`)
+          else void p.set('panKey', key)
+          stop()
+        }
+        win.addEventListener('keydown', onKey, true)
+      })
+    })
+    row.addExtraButton(x => x.setIcon('rotate-ccw').setTooltip('Back to Space').onClick(async () => {
+      await p.set('panKey', DEFAULT_PAN_KEY)
+      button.setButtonText(keyLabel(DEFAULT_PAN_KEY))
+    }))
   }
 
   private header(row: Setting) {

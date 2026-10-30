@@ -1497,6 +1497,114 @@ check('two tabs: an edit in one reaches the other', await ev(`
   await ev(`app.workspace.activeLeaf.detach(); for (const p of [${JSON.stringify(R17)}, 'R17 Check.html']) { const f = app.vault.getAbstractFileByPath(p); if (f) await app.vault.delete(f) } return 1`)
 }
 
+// R29: web links, #tag pills with search, and the pan key (1.1.0)
+{
+  const R29 = 'R29 Check.board.md', R29N = 'R29 Tag note.md'
+  copyFileSync(SMALL, `${VAULT}/${R29}`)
+  await ev(`const f = app.vault.getAbstractFileByPath(${JSON.stringify(R29N)}); if (f) await app.vault.delete(f); await app.vault.create(${JSON.stringify(R29N)}, '#v2 tagged note\\n'); return 1`)
+  await sleep(800)
+  await open(R29)
+  const view = `app.workspace.getLeavesOfType('flowmap-board').find(l => l.view.containerEl.closest('.workspace-leaf.mod-active')).view`
+  const add = (id, parent, order, text, x, y) => `{ id: '${id}', parent: ${parent ? `'${parent}'` : 'null'}, order: ${order}, text: ${JSON.stringify(text)}, x: ${x}, y: ${y} }`
+  const nodes = [
+    add('r29a', null, 90, 'see [docs](https://example.com/a?b=1) end', 0, 900), add('r29e', null, 91, 'see docs end', 400, 900),
+    add('r29b', null, 92, '[x](javascript:alert(1)) unsafe', 0, 1000), add('r29c', null, 93, 'ship #v2 today', 400, 1000),
+    add('r29d', null, 94, 'issue #123 and a#b and [[Note#Head]]', 0, 1100), add('r29p', null, 95, 'R29 parent', 0, 1300),
+    add('r29k1', 'r29p', 0, 'child number one ends with a tag #v2', 300, 1300), add('r29k2', 'r29p', 1, 'child number two ends with a tag #v2', 300, 1300),
+    add('r29k3', 'r29p', 2, 'child number three ends with a tag #v2', 300, 1300),
+  ].join(', ')
+  await ev(`const v = ${view}; v.store.dispatch(b => ({ ...b, nodes: [...b.nodes, ${nodes}] })); return 1`)
+  await sleep(500)
+  await click(pane.x, pane.y); await key('!', 'Digit1', ['shift']); await sleep(900) // focus the board, zoom to fit (only nodes in view are drawn)
+  const q = sel => ev(`return [...document.querySelectorAll('.workspace-leaf.mod-active .react-flow__node')].map(e => ({ id: e.dataset.id, ...${sel} }))`)
+
+  // Web links
+  const links = await ev(`const a = [...document.querySelectorAll('.workspace-leaf.mod-active .react-flow__node[data-id="r29a"] a.external-link')]
+    const bad = document.querySelectorAll('.workspace-leaf.mod-active .react-flow__node[data-id="r29b"] a')
+    return { n: a.length, text: a[0]?.textContent, href: a[0]?.getAttribute('href'), bad: bad.length, badText: document.querySelector('.workspace-leaf.mod-active .react-flow__node[data-id="r29b"] .flowmap-node-text')?.textContent }`)
+  check('R29: [text](url) is drawn as a link showing its label', links.n === 1 && links.text === 'docs' && links.href === 'https://example.com/a?b=1', JSON.stringify(links))
+  check('R29: a javascript: link is not a link and stays as typed', links.bad === 0 && links.badText === '[x](javascript:alert(1)) unsafe', JSON.stringify(links))
+  await ev(`window.__opened = []; window.__realOpen = window.open; window.open = u => { window.__opened.push(u); return null }; return 1`)
+  const ln = await at('.react-flow__node[data-id="r29a"] a.external-link')
+  await click(ln.x, ln.y); await sleep(300)
+  const opened = await ev(`window.open = window.__realOpen; return window.__opened`)
+  check('R29: clicking a web link opens exactly that address', opened.length === 1 && opened[0] === 'https://example.com/a?b=1', JSON.stringify(opened))
+  const hs = await q(`{ h: Math.round(e.getBoundingClientRect().height), w: Math.round(e.getBoundingClientRect().width) }`)
+  const ha = hs.find(x => x.id === 'r29a'), he = hs.find(x => x.id === 'r29e')
+  check('R29: a node with only a web link is sized from its label (one line, like the same text without the link)', ha && he && ha.h === he.h, JSON.stringify([ha, he]))
+
+  // Tags
+  const tags = await ev(`const t = id => [...document.querySelectorAll('.workspace-leaf.mod-active .react-flow__node[data-id="' + id + '"] .flowmap-tag')].map(e => e.textContent)
+    return { c: t('r29c'), d: t('r29d'), k: t('r29k1'), bg: getComputedStyle(document.querySelector('.workspace-leaf.mod-active .flowmap-tag')).backgroundColor }`)
+  check('R29: #v2 is drawn as a tag pill; #123, a#b and [[Note#Head]] are not', tags.c.join() === '#v2' && tags.d.length === 0 && tags.k.join() === '#v2' && tags.bg !== 'rgba(0, 0, 0, 0)', JSON.stringify(tags))
+  await key('a', 'KeyA', ['ctrl']); await settle(); await key('L', 'KeyL', ['shift']); await sleep(800)
+  const boxes = await ev(`return ['r29p', 'r29k1', 'r29k2', 'r29k3'].map(id => { const r = document.querySelector('.workspace-leaf.mod-active .react-flow__node[data-id="' + id + '"]').getBoundingClientRect(); return { id, l: r.left, t: r.top, r: r.right, b: r.bottom } })`)
+  const overlap = boxes.some((a, i) => boxes.some((c, j) => j > i && a.l < c.r - 1 && c.l < a.r - 1 && a.t < c.b - 1 && c.t < a.b - 1))
+  check('R29: tidy leaves nodes that end in a tag apart (their size counts the pill)', !overlap, JSON.stringify(boxes))
+  await click(pane.x, pane.y); await settle()
+
+  // Click a pill: the real core Search opens with tag:#v2 and lists the tagged note
+  const pill = await at('.react-flow__node[data-id="r29c"] .flowmap-tag')
+  await click(pill.x, pill.y); await sleep(2000)
+  const search = await ev(`const l = app.workspace.getLeavesOfType('search')[0]; if (!l) return null
+    return { q: l.view.containerEl.querySelector('input')?.value, files: [...l.view.containerEl.querySelectorAll('.search-result-file-title')].map(e => e.textContent.trim()) }`)
+  check('R29: clicking a tag pill opens Obsidian search for tag:#v2, which lists the tagged note', search && search.q === 'tag:#v2' && search.files.some(f => f.includes('R29 Tag note')), JSON.stringify(search))
+  console.log(`      (info) the search lists the board file itself: ${search?.files.some(f => f.includes('R29 Check')) ? 'yes' : 'no'}`)
+  await ev(`for (const l of app.workspace.getLeavesOfType('search')) l.detach(); return 1`)
+  await ev(`window.__gp = app.internalPlugins.getPluginById; app.internalPlugins.getPluginById = () => undefined; return 1`)
+  await click(pill.x, pill.y); await sleep(500)
+  const notice = await ev(`app.internalPlugins.getPluginById = window.__gp; return [...document.querySelectorAll('.notice')].map(e => e.textContent)`)
+  check('R29: with the core Search plugin off, a tag click shows a notice and does not throw', notice.some(t => t.includes('Turn on the core Search plugin')), JSON.stringify(notice))
+
+  // Pan key: Space by default; drag selects, held key + drag pans
+  const hold = (k, code, down) => call('Input.dispatchKeyEvent', { type: down ? 'rawKeyDown' : 'keyUp', key: k, code, windowsVirtualKeyCode: k === ' ' ? 32 : k.toUpperCase().charCodeAt(0) })
+  const vp = () => ev(`return document.querySelector('.workspace-leaf.mod-active .react-flow__viewport').style.transform`)
+  const panBy = async (k, code) => {
+    const v0 = await vp()
+    if (k) await hold(k, code, true)
+    await sleep(100)
+    // An empty spot well inside the pane, with empty space where the drag ends too: near an edge a selection drag auto-pans, and from a node it moves the node.
+    const c = await ev(`const r = document.querySelector('.workspace-leaf.mod-active .react-flow__pane').getBoundingClientRect(), empty = (x, y) => document.elementFromPoint(x, y)?.classList.contains('react-flow__pane')
+      for (let y = r.top + 90; y < r.bottom - 160; y += 30) for (let x = r.left + 90; x < r.right - 300; x += 30) if ([0, 60, 120].every(d => empty(x + d, y + d / 2 * 0.6))) return { x, y }
+      return null`)
+    await drag(c.x, c.y, c.x + 120, c.y + 70)
+    if (k) await hold(k, code, false)
+    await sleep(200)
+    return (await vp()) !== v0
+  }
+  const plugin = `app.plugins.plugins.mindmapmate`
+  check('R29: a drag with no key held does not pan (it selects)', !(await panBy()))
+  check('R29: Space (the default) held + drag pans', await panBy(' ', 'Space'))
+  await ev(`await ${plugin}.set('panKey', 'Q'); return 1`); await sleep(400)
+  check('R29: with the pan key set to Q, Q + drag pans', await panBy('q', 'KeyQ'))
+  check('R29: with the pan key set to Q, Space no longer pans', !(await panBy(' ', 'Space')))
+  await ev(`await ${plugin}.set('panKey', 'Space'); return 1`); await sleep(400)
+  check('R29: back on Space, Space + drag pans again', await panBy(' ', 'Space'))
+
+  // The settings row: record a key, refuse Shift combinations, Esc cancels, the arrow puts back Space
+  const tab = `app.setting.pluginTabs.find(t => t.id === 'mindmapmate')`
+  await ev(`${tab}.display(); document.body.append(${tab}.containerEl); await new Promise(r => setTimeout(r, 300)); return 1`)
+  const row = `[...${tab}.containerEl.querySelectorAll('.setting-item')].find(r => r.querySelector('.setting-item-name')?.textContent === 'Pan key')`
+  const press = (key, code, extra = {}) => ev(`window.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, code: ${JSON.stringify(code)}, bubbles: true, cancelable: true, ...${JSON.stringify(extra)} })); await new Promise(r => setTimeout(r, 150)); return 1`)
+  const label = () => ev(`return ${row}?.querySelector('button')?.textContent`)
+  check('R29: settings have a Pan key row showing Space', (await label()) === 'Space')
+  await ev(`${row}.querySelector('button').click(); return 1`)
+  check('R29: clicking the Pan key button waits for a key', (await label()) === 'Press a key…')
+  await press('Shift', 'ShiftLeft', { shiftKey: true }); await press('w', 'KeyW')
+  check('R29: pressing W (a lone Shift first is ignored) sets the pan key to W', (await ev(`return ${plugin}.panKey`)) === 'W' && (await label()) === 'W')
+  await ev(`${row}.querySelector('button').click(); return 1`); await press('Q', 'KeyQ', { shiftKey: true })
+  check('R29: Shift+Q is refused with a message and the key stays W', (await ev(`return ${plugin}.panKey`)) === 'W' && (await ev(`return [...document.querySelectorAll('.notice')].some(e => e.textContent.includes('no Shift'))`)))
+  await ev(`${row}.querySelector('button').click(); return 1`); await press('Escape', 'Escape')
+  check('R29: Esc cancels and the key stays W', (await ev(`return ${plugin}.panKey`)) === 'W' && (await label()) === 'W')
+  await ev(`${row}.querySelector('.extra-setting-button').click(); await new Promise(r => setTimeout(r, 300)); return 1`)
+  check('R29: the reset arrow puts back Space', (await ev(`return ${plugin}.panKey`)) === 'Space' && (await label()) === 'Space')
+  // Old settings (no panKey saved at all) load as Space
+  check('R29: settings saved before 1.1.0 (no panKey) mean Space', await ev(`delete ${plugin}.settings.panKey; return ${plugin}.panKey`) === 'Space')
+  await ev(`${tab}.hide(); ${tab}.containerEl.remove(); return 1`)
+
+  await ev(`app.workspace.activeLeaf.detach(); for (const p of [${JSON.stringify(R29)}, ${JSON.stringify(R29N)}]) { const f = app.vault.getAbstractFileByPath(p); if (f) await app.vault.delete(f) } return 1`)
+}
+
 // Clean close: no leaked listeners after 10 open/close cycles
 const listeners = async () => {
   let total = 0

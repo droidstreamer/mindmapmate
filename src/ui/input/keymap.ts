@@ -79,3 +79,31 @@ function matches(e: KeyboardEvent, binding: string): boolean {
 export function actionFor(e: KeyboardEvent, keymap: Keymap): Action | undefined {
   return (Object.keys(keymap) as Action[]).find(a => keymap[a].some(b => matches(e, b)))
 }
+
+/**
+ * R29: the key held to pan (default Space). One plain key: Space, a letter, a digit or F1-F12. Not Shift, Ctrl, Cmd or
+ * Alt (they already mean add to selection, zoom, move alone, duplicate), and not the board's own keys (Esc, Enter, arrows…).
+ */
+export const DEFAULT_PAN_KEY = 'Space'
+const PAN_KEY = /^(Space|[A-Z0-9]|F([1-9]|1[0-2]))$/
+
+/** The pan key a saved value means: the value if it is allowed, else Space (old or hand-edited data.json). */
+export const normalizePanKey = (saved: unknown): string => typeof saved === 'string' && PAN_KEY.test(saved) ? saved : DEFAULT_PAN_KEY
+
+/** The pan key a key press makes, for recording it in settings; undefined when that key can't pan. */
+export function panKeyFor(e: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>): string | undefined {
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+  const key = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key
+  return PAN_KEY.test(key) ? key : undefined
+}
+
+/** Whether this key event is the pan key. */
+export const isPanKey = (e: Pick<KeyboardEvent, 'key' | 'code'>, panKey: string) =>
+  e.key.toLowerCase() === panKey.toLowerCase() || e.code.toLowerCase() === panKey.toLowerCase()
+
+/** The board action that already uses this pan key as a plain key (it would fire while panning), if any. */
+export const panKeyConflict = (keymap: Keymap, panKey: string): Action | undefined =>
+  (Object.keys(keymap) as Action[]).find(a => keymap[a].some(b => b.toLowerCase() === panKey.toLowerCase() || b.toLowerCase() === `key${panKey}`.toLowerCase() || b.toLowerCase() === `digit${panKey}`.toLowerCase()))
+
+/** The code React Flow watches for: it matches a letter or digit by its code ("KeyQ"), and Space and F keys as they are. */
+export const flowKeyCode = (panKey: string) => /^[A-Z]$/.test(panKey) ? `Key${panKey}` : /^\d$/.test(panKey) ? `Digit${panKey}` : panKey
